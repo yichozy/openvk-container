@@ -19,18 +19,16 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
 RUN curl -s -m 3 https://google.com > /dev/null || \
     pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
-RUN pip install uv
 
 # Copy requirements.txt and install dependencies
 COPY requirements.txt .
-RUN uv pip install --system -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Create directory for agent workspaces and logs
 RUN mkdir -p /data/workspace /data/log
 
 # Expose the default OpenViking port
 EXPOSE 1933
-
 EXPOSE 1934
 
 # Copy the supervisor configuration file
