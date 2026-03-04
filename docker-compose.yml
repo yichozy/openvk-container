@@ -1,0 +1,16 @@
+services:
+  openviking:
+    image: enzii/openvk-container:latest
+    # build: .
+    container_name: openviking-server
+    ports:
+      - "1933:1933"
+    environment:
+      - PATH=/usr/local/lib/python3.11/site-packages/openviking/bin:$PATH
+    volumes:
+      # Mount the workspace data directory for persistence
+      - ./data:/data
+      # Mount the user's config file
+      - ./.openviking/ov.conf:/app/ov.conf:ro
+    restart: unless-stopped
+    # If using local GPU/local models, additional configuration like network_mode: "host" might be required.

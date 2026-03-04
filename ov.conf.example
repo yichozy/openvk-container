@@ -1,0 +1,30 @@
+{
+  "server": {
+    "root_api_key": "YOUR_ROOT_API_KEY",
+    "host": "0.0.0.0"
+  },
+  "storage": {
+    "workspace": "/data/workspace"
+  },
+  "log": {
+    "level": "INFO",
+    "output": "stdout" 
+  },
+  "embedding": {
+    "dense": {
+      "api_base" : "https://ark.cn-beijing.volces.com/api/v3/",
+      "api_key"  : "YOUR_EMBEDDING_API_KEY", 
+      "provider" : "volcengine",
+      "dimension": 1024,
+      "model"    : "doubao-embedding-vision-250615"
+    },
+    "max_concurrent": 10
+  },
+  "vlm": {
+    "api_base" : "https://api.openai.com/v1",
+    "api_key"  : "YOUR_VLM_API_KEY",
+    "provider" : "openai",
+    "model"    : "gpt-4o",
+    "max_concurrent": 100
+  }
+}
