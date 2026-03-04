@@ -32,15 +32,29 @@ OpenViking is an open-source context database designed specifically for AI Agent
    docker compose up -d
    ```
 
-4. **Verify the Server**
+4. **Verify the Services**
 
-   Check if the server is healthy:
+   Check if the OpenViking core server is healthy:
 
    ```bash
    curl http://localhost:1933/health
    ```
 
    You should see `{"status": "ok"}`.
+
+   Verify that the Client REST API is running by accessing the Swagger UI in your browser:  
+   [http://localhost:1934/docs](http://localhost:1934/docs)
+
+## Client REST API
+
+The container includes a built-in Client REST API powered by FastAPI on port `1934` (mapped from container port `1934`). This API acts as an HTTP wrapper around the native `openviking` client, allowing you to seamlessly manage resources and perform intelligent retrievals.
+
+- **Interactive API Docs (Swagger UI):** [http://localhost:1934/docs](http://localhost:1934/docs)
+
+### API Capabilities
+
+- **Resources (`/resources/*`):** Add, list, move, link, and delete your AI context resources.
+- **Retrieval (`/retrieval/*`):** Perform vector-based season-aware semantic searches, specific text finds, and progressive reading.
 
 ## Connecting from Python SDK
 

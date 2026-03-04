@@ -1,2 +1,4 @@
 .openviking
 data
+__pycache__
+.env

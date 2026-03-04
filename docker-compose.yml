@@ -1,10 +1,11 @@
 services:
   openviking:
     image: enzii/openvk-container:latest
-    # build: .
+    build: .
     container_name: openviking-server
     ports:
       - "1933:1933"
+      - "1934:1934"
     environment:
       - PATH=/usr/local/lib/python3.11/site-packages/openviking/bin:$PATH
     volumes:

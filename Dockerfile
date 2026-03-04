@@ -7,6 +7,7 @@ WORKDIR /app
 # Install uv for faster python package installation and necessary build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    supervisor \
     cmake \
     libc6 \
     golang \
@@ -23,6 +24,13 @@ RUN mkdir -p /data/workspace /data/log
 # Expose the default OpenViking port
 EXPOSE 1933
 
-# Start the OpenViking server, pointing config to /app/ov.conf
-# Note: Users must mount their ov.conf at /app/ov.conf
-CMD ["openviking-server", "--config", "/app/ov.conf", "--host", "0.0.0.0", "--port", "1933"]
+EXPOSE 1934
+
+# Copy the supervisor configuration file
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy source code
+COPY main.py .
+COPY service ./service
+
+CMD ["/usr/bin/supervisord", "-n"]
