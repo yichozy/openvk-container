@@ -4,14 +4,21 @@ FROM public.ecr.aws/docker/library/python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install uv for faster python package installation and necessary build tools
+# Install necessary build tools, curl, and certificates
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential \
     supervisor \
     cmake \
     libc6 \
     golang \
+    curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Auto-detect and configure best pip mirror (use Tsinghua if global network is unreachable)
+RUN curl -s -m 3 https://google.com > /dev/null || \
+    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
 RUN pip install uv
 
 # Copy requirements.txt and install dependencies
