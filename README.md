@@ -3,10 +3,7 @@
 This repository contains the necessary files to containerize and run the **OpenViking** ecosystem.
 OpenViking is an open-source context database designed specifically for AI Agents.
 
-This container runs two primary services supervised together:
-
-1. **OpenViking Server (Port 1933):** The core OpenViking backend (AGFS, Vector Index, Queue Manager, etc.).
-2. **OpenViking Client API (Port 1934):** A FastAPI-based REST API that wraps the synchronous OpenViking client SDK, providing easy HTTP access to the database's capabilities.
+This container runs a standalone FastAPI REST API (Port 1934) that wraps the `openviking` client SDK. It initializes its own local backend instance internally and allows you to seamlessly manage resources and perform intelligent retrievals from any programming language via standard HTTP requests.
 
 ## Prerequisites
 
@@ -25,11 +22,15 @@ This container runs two primary services supervised together:
 
 2. **Configure your API keys**
 
-   Edit the `ov.conf` file to include your LLM/Embedding API Keys and endpoints. The workspace will be automatically stored in the `./data` directory relative to this `docker-compose.yml`.
+   Edit the `ov.conf` file to include your LLM/Embedding API Keys and endpoints.
 
    _Example: Replacing `YOUR_VLM_API_KEY` for OpenAI and `YOUR_EMBEDDING_API_KEY` for Volcengine (or you can use OpenAI for both)._
 
-3. **Start the Services**
+3. **Data Persistence**
+
+   The Docker container automatically persists OpenViking's internal storage, vector indexes, and contextual data by mounting the local `./data` directory into the container's `/app/data` pathway. You don't need to do anything extra; all your states will survive container restarts!
+
+4. **Start the API**
 
    Run Docker Compose in detached mode:
 
@@ -37,18 +38,18 @@ This container runs two primary services supervised together:
    docker compose up -d
    ```
 
-4. **Verify the Services**
-
-   Check if the OpenViking core server is healthy:
-
-   ```bash
-   curl http://localhost:1933/health
-   ```
-
-   _Expected:_ `{"status": "ok"}`
+5. **Verify the API**
 
    Verify that the Client REST API is running by accessing the Interactive Docs (Swagger UI) in your browser:  
    [http://localhost:1934/docs](http://localhost:1934/docs)
+
+## Local Development (VS Code)
+
+A `.vscode/launch.json` configuration is included to easily debug the FastAPI interface natively:
+
+1. Make sure your Python environment has dependencies installed (`pip install -r requirements.txt`).
+2. Press **F5** in VS Code with the `"Python: FastAPI (uvicorn)"` profile.
+3. It will automatically load `.openviking/ov.conf` into your variables and execute `main.py` with automatic code reloading.
 
 ## Client REST API (Port 1934)
 
@@ -74,16 +75,4 @@ curl -X 'POST' \
   -F 'file=@/path/to/your/document.pdf' \
   -F 'target=viking://resources/docs/' \
   -F 'reason=Adding new project specification'
-```
-
-## Connecting from Python SDK directly to Server (Port 1933)
-
-If you are using Python, you can connect directly to the underlying OpenViking Server instead of using the Client API:
-
-```python
-import openviking as ov
-
-client = ov.SyncHTTPClient(url="http://localhost:1933")
-client.initialize()
-print("Connected to OpenViking Container!")
 ```

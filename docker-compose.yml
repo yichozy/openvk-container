@@ -4,13 +4,12 @@ services:
     build: .
     container_name: openviking-container
     ports:
-      - "1933:1933"
       - "1934:1934"
     environment:
       - PATH=/usr/local/lib/python3.11/site-packages/openviking/bin:$PATH
     volumes:
       # Mount the workspace data directory for persistence
-      - ./data:/data
+      - ./data:/app/data
       # Mount the user's config file
       - ./.openviking/ov.conf:/app/ov.conf:ro
     restart: unless-stopped
