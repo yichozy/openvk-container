@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 from typing import List, Union, Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
+import tempfile
+import shutil
+import os
 
 from openviking.message import Message
 from service.resources import (
@@ -65,8 +68,8 @@ class AddMessageRequest(BaseModel):
     parts: Optional[List[Dict]] = None
     
 
-class AddResourceRequest(BaseModel):
-    path_or_url: str = Field(..., description="Path or URL to add")
+class AddResourceURLRequest(BaseModel):
+    url: str = Field(..., description="URL to add")
     target: str = Field(..., description="Target URI (e.g., viking://...)")
     reason: str = Field("", description="Reason for adding the resource")
 
@@ -125,10 +128,37 @@ class ReadProgressivelyRequest(BaseModel):
 # Routes: Resources
 # ==========================================
 
-@app.post("/resources/add", summary="Add a Resource")
-def api_add_resource(req: AddResourceRequest):
+@app.post("/resources/add_url", summary="Add a Resource via URL")
+def api_add_resource_url(req: AddResourceURLRequest):
     try:
-        status = add_resource(path_or_url=req.path_or_url, target=req.target, reason=req.reason)
+        status = add_resource(path_or_url=req.url, target=req.target, reason=req.reason)
+        return {"status": "success", "data": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/add_file", summary="Add a Resource via File Upload")
+def api_add_resource_file(
+    file: UploadFile = File(..., description="Uploaded file to add"),
+    target: str = Form(..., description="Target URI (e.g., viking://...)"),
+    reason: str = Form("", description="Reason for adding the resource")
+):
+    try:
+        # Create a temp directory
+        temp_dir = tempfile.mkdtemp()
+        temp_file_path = os.path.join(temp_dir, file.filename)
+        
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason)
+        
+        # Attempt to clean up
+        try:
+            os.remove(temp_file_path)
+            os.rmdir(temp_dir)
+        except Exception:
+            pass
+            
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
