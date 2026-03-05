@@ -3,7 +3,7 @@ services:
     platform: linux/amd64
     image: enzii/openvk-container:latest
     build: .
-    container_name: openviking-server
+    container_name: openviking-container
     ports:
       - "1933:1933"
       - "1934:1934"
