@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends golang git buil
 RUN pip install -r requirements.txt
 
 # Remove build dependencies
-# RUN apt-get purge -y --auto-remove golang git build-essential cmake && \
-#     rm -rf /var/lib/apt/lists/*
+RUN apt-get purge -y --auto-remove golang git build-essential cmake && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create directory for agent workspaces and logs
 RUN mkdir -p /data/workspace /data/log
