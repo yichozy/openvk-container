@@ -1,5 +1,6 @@
 services:
   openviking:
+    platform: linux/amd64
     image: enzii/openvk-container:latest
     build: .
     container_name: openviking-server

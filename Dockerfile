@@ -1,38 +1,33 @@
 # Use an official Python runtime as a parent image from ECR
-FROM public.ecr.aws/docker/library/python:3.11-slim
+FROM public.ecr.aws/docker/library/python:3.11-slim-bookworm
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Install necessary build tools, curl, and certificates. Upgrade to patch vulnerabilities.
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    build-essential \
+# Switch apt mirror to avoid flaky deb.debian.org CDN nodes
+RUN sed -i 's/deb.debian.org/cloudfront.debian.net/g' /etc/apt/sources.list.d/debian.sources
+
+# Install supervisor and required tools, then clean up metadata
+RUN apt-get update -o Acquire::Retries=3 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing -o Acquire::Retries=3 \
     supervisor \
-    cmake \
-    libc6 \
-    golang \
     curl \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Auto-detect and configure best pip mirror (use Tsinghua if global network is unreachable)
-RUN curl -s -m 3 https://google.com > /dev/null || \
-    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+# Install uv for fast compilation and dependency resolution
+RUN pip install uv
 
-# Copy requirements.txt and install dependencies
+# Configure best pip mirror (Tsinghua) if the global network is slow
+RUN curl -s -m 3 https://google.com > /dev/null || \
+    uv pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
 COPY requirements.txt .
 
-# Install dependencies and then purge unnecessary build dependencies to reduce vulnerabilities
-RUN pip install -r requirements.txt && \
-    apt-get purge -y build-essential cmake golang && \
-    apt-get autoremove -y && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install dependencies using uv and clean up build cache
+RUN uv pip install --system --no-cache-dir -r requirements.txt
 
 # Create directory for agent workspaces and logs
 RUN mkdir -p /data/workspace /data/log
 
-# Expose the default OpenViking port
+# Expose the default OpenViking and Web API ports
 EXPOSE 1933
 EXPOSE 1934
 
