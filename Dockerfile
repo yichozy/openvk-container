@@ -1,31 +1,19 @@
-# Use an official Python runtime as a parent image from ECR
-FROM public.ecr.aws/docker/library/python:3.11-slim-bookworm
+FROM public.ecr.aws/docker/library/python:3.13-slim
 
 WORKDIR /app
 
-# Switch apt mirror to avoid flaky deb.debian.org CDN nodes
-RUN sed -i 's/deb.debian.org/cloudfront.debian.net/g' /etc/apt/sources.list.d/debian.sources
-
-# Install supervisor and required tools, then clean up metadata
-RUN apt-get update -o Acquire::Retries=3 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing -o Acquire::Retries=3 \
-    supervisor \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv for fast compilation and dependency resolution
-RUN pip install uv
-
-# Configure best pip mirror (Tsinghua) if the global network is slow
-RUN curl -s -m 3 https://google.com > /dev/null || \
-    uv pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY requirements.txt .
 
-# Install dependencies using uv and clean up build cache
-RUN apt-get update -o Acquire::Retries=3 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends golang git build-essential cmake && \
-    uv pip install --system --no-cache-dir -r requirements.txt && \
-    apt-get purge -y --auto-remove golang git build-essential cmake && \
-    rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends golang git build-essential cmake supervisor
+
+# Install python dependencies
+RUN pip install -r requirements.txt
+
+# Remove build dependencies
+# RUN apt-get purge -y --auto-remove golang git build-essential cmake && \
+#     rm -rf /var/lib/apt/lists/*
 
 # Create directory for agent workspaces and logs
 RUN mkdir -p /data/workspace /data/log
@@ -41,12 +29,11 @@ COPY supervisord.conf /app/supervisord.conf
 COPY main.py .
 COPY service ./service
 
-# Create a non-root user for security compliance and change ownership of working directories
-RUN groupadd -r appuser && useradd -r -g appuser appuser && \
-    chown -R appuser:appuser /app /data
-
-# Switch to the non-root user
-USER appuser
-
 # Run supervisor using our custom user-owned config
 CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "1934"]
+
+# openviking-server --config /app/ov.conf --host 0.0.0.0 --port 1933
+# CMD ["openviking-server", "--config", "/app/ov.conf", "--host", "0.0.0.0", "--port", "1933"]
+
+
