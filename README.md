@@ -53,8 +53,11 @@ The container includes a built-in Client REST API powered by FastAPI on port `19
 
 ### API Capabilities
 
-- **Resources (`/resources/*`):** Add, list, move, link, and delete your AI context resources.
+- **Resources (`/resources/*`):** Add, list, move, link, delete, and perform file system operations like `mkdir`, `stat`, `tree`, `grep`, and `glob`. Also supports importing and exporting `.ovpack` archives.
 - **Retrieval (`/retrieval/*`):** Perform vector-based season-aware semantic searches, specific text finds, and progressive reading.
+- **Sessions (`/sessions/*`):** Chat session management, including creation, listing, message addition, and memory commits.
+- **Skills (`/skills/*`):** Register new tools and AI skills dynamically.
+- **System (`/system/*`):** Check container health status and internal component metrics.
 
 ## Connecting from Python SDK
 

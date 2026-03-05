@@ -12,7 +12,12 @@ from service.resources import (
     move_resource,
     delete_resource,
     link_resources,
-    unlink_resources
+    unlink_resources,
+    export_ovpack,
+    import_ovpack,
+    stat,
+    mkdir,
+    wait_processed
 )
 from service.retrieval import (
     find_resources,
@@ -20,6 +25,17 @@ from service.retrieval import (
     read_resources_progressively,
     read_resource
 )
+from service.tree import (
+    get_tree,
+    grep_resources,
+    glob_resources
+)
+from service.sessions import (
+    session_exists, create_session, list_sessions, get_session,
+    delete_session, add_message, commit_session
+)
+from service.skills import add_skill
+from service.system import get_status, is_healthy
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,11 +46,38 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="OpenViking Client API", lifespan=lifespan)
 
 # --- Pydantic Models for Resources ---
+class ExportOvpackRequest(BaseModel):
+    uri: str = Field(..., description="Viking URI to export from")
+    to: str = Field(..., description="Destination file path")
+
+class ImportOvpackRequest(BaseModel):
+    file_path: str = Field(..., description="Source .ovpack file path")
+    target: str = Field(..., description="Target URI")
+    force: bool = Field(False)
+    vectorize: bool = Field(True)
+
+class MkdirRequest(BaseModel):
+    uri: str = Field(..., description="URI to create directory for")
+
+class AddMessageRequest(BaseModel):
+    role: str = Field(..., description="Role ('user' or 'assistant')")
+    content: Optional[str] = None
+    parts: Optional[List[Dict]] = None
+    
 
 class AddResourceRequest(BaseModel):
     path_or_url: str = Field(..., description="Path or URL to add")
     target: str = Field(..., description="Target URI (e.g., viking://...)")
     reason: str = Field("", description="Reason for adding the resource")
+
+class GrepResourceRequest(BaseModel):
+    uri: str = Field(..., description="Viking URI to search in")
+    pattern: str = Field(..., description="Search pattern (regex)")
+    case_insensitive: bool = Field(False, description="Ignore case")
+
+class GlobResourceRequest(BaseModel):
+    pattern: str = Field(..., description="Glob pattern (e.g., **/*.md)")
+    uri: str = Field("viking://", description="Starting URI")
 
 class MoveResourceRequest(BaseModel):
     src: str = Field(..., description="Source resource URI")
@@ -138,6 +181,30 @@ def api_unlink_resources(req: UnlinkResourceRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/resources/tree", summary="Get Resource Tree")
+def api_get_tree(target: str):
+    try:
+        tree_data = get_tree(target)
+        return {"status": "success", "data": tree_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/grep", summary="Grep in Resources")
+def api_grep_resources(req: GrepResourceRequest):
+    try:
+        results = grep_resources(uri=req.uri, pattern=req.pattern, case_insensitive=req.case_insensitive)
+        return {"status": "success", "data": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/glob", summary="Glob Match Resources")
+def api_glob_resources(req: GlobResourceRequest):
+    try:
+        results = glob_resources(pattern=req.pattern, uri=req.uri)
+        return {"status": "success", "data": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # ==========================================
 # Routes: Retrieval
@@ -188,6 +255,132 @@ def api_read_progressively(req: ReadProgressivelyRequest):
 def api_read_resource(target: str, level: str = "L2"):
     try:
         data = read_resource(target=target, level=level)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# Routes: System
+# ==========================================
+@app.get("/system/status", summary="Get System Status")
+def api_get_status():
+    try:
+        status = get_status()
+        return {"status": "success", "data": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/system/health", summary="Quick Health Check")
+def api_is_healthy():
+    try:
+        healthy = is_healthy()
+        return {"status": "success", "data": healthy}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# Routes: Sessions
+# ==========================================
+@app.post("/sessions/create", summary="Create Session")
+def api_create_session():
+    try:
+        data = create_session()
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sessions/list", summary="List Sessions")
+def api_list_sessions():
+    try:
+        data = list_sessions()
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sessions/{session_id}", summary="Get Session")
+def api_get_session(session_id: str):
+    if not session_exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    try:
+        data = get_session(session_id)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/sessions/{session_id}", summary="Delete Session")
+def api_delete_session(session_id: str):
+    try:
+        delete_session(session_id)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/sessions/{session_id}/message", summary="Add Message")
+def api_add_message(session_id: str, req: AddMessageRequest):
+    try:
+        data = add_message(session_id, req.role, content=req.content, parts=req.parts)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/sessions/{session_id}/commit", summary="Commit Session")
+def api_commit_session(session_id: str):
+    try:
+        data = commit_session(session_id)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# Routes: Skills
+# ==========================================
+@app.post("/skills/add", summary="Add Skill")
+def api_add_skill(req: Dict[str, Any]):
+    try:
+        data = add_skill(req)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# Extended Routes: Resources (Sync / IO)
+# ==========================================
+@app.post("/resources/export_ovpack", summary="Export OVPack")
+def api_export_ovpack(req: ExportOvpackRequest):
+    try:
+        data = export_ovpack(req.uri, req.to)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/import_ovpack", summary="Import OVPack")
+def api_import_ovpack(req: ImportOvpackRequest):
+    try:
+        data = import_ovpack(req.file_path, req.target, req.force, req.vectorize)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/mkdir", summary="Make Directory")
+def api_mkdir(req: MkdirRequest):
+    try:
+        mkdir(req.uri)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/resources/stat", summary="Stat Resource")
+def api_stat(uri: str):
+    try:
+        data = stat(uri)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/wait_processed", summary="Wait Operations Processed")
+def api_wait_processed(timeout: float = None):
+    try:
+        data = wait_processed(timeout)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

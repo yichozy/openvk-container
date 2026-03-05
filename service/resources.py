@@ -1,6 +1,5 @@
 from .client import OpenVK
 from typing import Dict, Any, List, Union
-from openviking_cli.retrieve.types import FindResult
 
 def add_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
@@ -21,7 +20,6 @@ def add_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, A
 
     status = client.wait_processed()
 
-    # client.close()
 
     return status
 
@@ -80,4 +78,30 @@ def unlink_resources(src: str, dest: str) -> None:
     client = OpenVK.get_client()
     client.unlink(src, dest)
     # client.close()
+
+def export_ovpack(target: str, to: str) -> str:
+    """Export .ovpack file"""
+    client = OpenVK.get_client()
+    return client.export_ovpack(target, to)
+
+def import_ovpack(file_path: str, target: str, force: bool = False, vectorize: bool = True) -> str:
+    """Import .ovpack file"""
+    client = OpenVK.get_client()
+    return client.import_ovpack(file_path, target, force, vectorize)
+
+def stat(uri: str) -> Dict[str, Any]:
+    """Get resource status"""
+    client = OpenVK.get_client()
+    return client.stat(uri)
+
+def mkdir(uri: str) -> None:
+    """Create directory"""
+    client = OpenVK.get_client()
+    client.mkdir(uri)
+
+def wait_processed(timeout: float = None) -> Dict[str, Any]:
+    """Wait for all async operations to complete"""
+    client = OpenVK.get_client()
+    return client.wait_processed(timeout)
+
 
