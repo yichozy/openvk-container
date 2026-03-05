@@ -21,7 +21,7 @@ def add_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, A
 
     status = client.wait_processed()
 
-    client.close()
+    # client.close()
 
     return status
 
@@ -37,7 +37,7 @@ def list_resources(target: str, simple: bool = False, recursive: bool = False) -
     
     resources = client.ls(target, simple=simple, recursive=recursive)
 
-    client.close()
+    # client.close()
 
     return resources
 
@@ -47,37 +47,37 @@ def get_resource_relations(target: str) -> List[Any]:
     """Get relations for a resource"""
     client = OpenVK.get_client()
     relations = client.relations(target)
-    client.close()
+    # client.close()
     return relations
 
 def move_resource(src: str, dest: str) -> None:
     """Move resources from src to dest"""
     client = OpenVK.get_client()
     client.mv(src, dest)
-    client.close()
+    # client.close()
 
 def delete_resource(target: str, recursive: bool = False) -> None:
     """Delete resources"""
     client = OpenVK.get_client()
     client.rm(target, recursive=recursive)
-    client.close()
+    # client.close()
 
 def link_resources(src: str, dest: Union[str, List[str]], reason: str = "") -> None:
     """Create Links between resources"""
     client = OpenVK.get_client()
     client.link(src, dest, reason=reason)
-    client.close()
+    # client.close()
 
 def get_relations(target: str) -> List[Any]:
     """Get relations for a resource"""
     client = OpenVK.get_client()
     relations = client.relations(target)
-    client.close()
+    # client.close()
     return relations
 
 def unlink_resources(src: str, dest: str) -> None:
     """Remove Links between resources"""
     client = OpenVK.get_client()
     client.unlink(src, dest)
-    client.close()
+    # client.close()
 

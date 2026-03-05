@@ -13,7 +13,7 @@ def find_resources(query: str,  target_uri: str = "") -> FindResult:
         target_uri=target_uri
     )
 
-    client.close()
+    # client.close()
 
     return results
 
@@ -26,7 +26,7 @@ def season_aware_search(query: str, msgs: List[Message], target_uri: str = "") -
         session.add_message(msg.role, [TextPart(msg.content)])
 
     results = client.search(query, session=session,target_uri=target_uri)
-    client.close()
+    # client.close()
     return results
 
 
@@ -53,7 +53,7 @@ def read_resources_progressively(resources: List[MatchedContext]) -> str:
             content = client.read(ctx.uri)
             ret_obj += content
 
-    client.close()
+    # client.close()
 
     return ret_obj
 
@@ -77,6 +77,6 @@ def read_resource(target: str, level: str = "L2") -> str:
     else:
         raise ValueError("Invalid level. Must be L0, L1, or L2")
 
-    client.close()
+    # client.close()
 
     return ret_obj

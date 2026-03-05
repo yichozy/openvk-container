@@ -24,6 +24,8 @@ from service.retrieval import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    from service.client import OpenVK
+    OpenVK.close_client()
 
 app = FastAPI(title="OpenViking Client API", lifespan=lifespan)
 

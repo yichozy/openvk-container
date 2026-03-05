@@ -2,6 +2,7 @@ FROM public.ecr.aws/docker/library/python:3.13-slim
 
 WORKDIR /app
 
+ENV OPENVIKING_CONFIG_FILE=/app/ov.conf
 
 COPY requirements.txt .
 
@@ -31,9 +32,3 @@ COPY service ./service
 
 # Run supervisor using our custom user-owned config
 CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
-# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "1934"]
-
-# openviking-server --config /app/ov.conf --host 0.0.0.0 --port 1933
-# CMD ["openviking-server", "--config", "/app/ov.conf", "--host", "0.0.0.0", "--port", "1933"]
-
-
