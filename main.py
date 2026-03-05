@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 from typing import List, Union, Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 import tempfile
 import shutil
@@ -51,13 +52,6 @@ app = FastAPI(title="OpenViking Client API", lifespan=lifespan)
 # --- Pydantic Models for Resources ---
 class ExportOvpackRequest(BaseModel):
     uri: str = Field(..., description="Viking URI to export from")
-    to: str = Field(..., description="Destination file path")
-
-class ImportOvpackRequest(BaseModel):
-    file_path: str = Field(..., description="Source .ovpack file path")
-    target: str = Field(..., description="Target URI")
-    force: bool = Field(False)
-    vectorize: bool = Field(True)
 
 class MkdirRequest(BaseModel):
     uri: str = Field(..., description="URI to create directory for")
@@ -378,15 +372,48 @@ def api_add_skill(req: Dict[str, Any]):
 @app.post("/resources/export_ovpack", summary="Export OVPack")
 def api_export_ovpack(req: ExportOvpackRequest):
     try:
-        data = export_ovpack(req.uri, req.to)
-        return {"status": "success", "data": data}
+        fd, temp_path = tempfile.mkstemp(suffix=".ovpack")
+        os.close(fd)
+        
+        export_ovpack(req.uri, temp_path)
+        
+        with open(temp_path, "rb") as f:
+            file_bytes = f.read()
+            
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+        
+        return Response(
+            content=file_bytes, 
+            media_type="application/octet-stream"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/import_ovpack", summary="Import OVPack")
-def api_import_ovpack(req: ImportOvpackRequest):
+def api_import_ovpack(
+    file: UploadFile = File(..., description="Uploaded .ovpack file to import"),
+    target: str = Form(..., description="Target URI to unpack to"),
+    force: bool = Form(False, description="Force overwrite"),
+    vectorize: bool = Form(True, description="Run vectorization on unpacking")
+):
     try:
-        data = import_ovpack(req.file_path, req.target, req.force, req.vectorize)
+        temp_dir = tempfile.mkdtemp()
+        temp_file_path = os.path.join(temp_dir, file.filename)
+        
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        data = import_ovpack(temp_file_path, target, force, vectorize)
+        
+        try:
+            os.remove(temp_file_path)
+            os.rmdir(temp_dir)
+        except Exception:
+            pass
+            
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
