@@ -22,7 +22,10 @@ RUN curl -s -m 3 https://google.com > /dev/null || \
 COPY requirements.txt .
 
 # Install dependencies using uv and clean up build cache
-RUN uv pip install --system --no-cache-dir -r requirements.txt
+RUN apt-get update -o Acquire::Retries=3 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends golang git build-essential cmake && \
+    uv pip install --system --no-cache-dir -r requirements.txt && \
+    apt-get purge -y --auto-remove golang git build-essential cmake && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create directory for agent workspaces and logs
 RUN mkdir -p /data/workspace /data/log
