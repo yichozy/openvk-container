@@ -11,6 +11,7 @@ import os
 from openviking.message import Message
 from service.resources import (
     add_resource,
+    replace_resource,
     list_resources,
     get_resource_relations,
     move_resource,
@@ -20,6 +21,7 @@ from service.resources import (
     export_ovpack,
     import_ovpack,
     stat,
+    stat_by_path,
     mkdir,
     wait_processed
 )
@@ -66,6 +68,11 @@ class AddResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL to add")
     target: str = Field(..., description="Target URI (e.g., viking://...)")
     reason: str = Field("", description="Reason for adding the resource")
+
+class ReplaceResourceURLRequest(BaseModel):
+    url: str = Field(..., description="URL for replacement")
+    target: str = Field(..., description="Target URI (e.g., viking://...)")
+    reason: str = Field("", description="Reason for replacing the resource")
 
 class GrepResourceRequest(BaseModel):
     uri: str = Field(..., description="Viking URI to search in")
@@ -145,6 +152,41 @@ def api_add_resource_file(
             shutil.copyfileobj(file.file, buffer)
             
         status = add_resource(path_or_url=temp_file_path, target=target, reason=reason)
+        
+        # Attempt to clean up
+        try:
+            os.remove(temp_file_path)
+            os.rmdir(temp_dir)
+        except Exception:
+            pass
+            
+        return {"status": "success", "data": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/replace_url", summary="Replace a Resource via URL")
+def api_replace_resource_url(req: ReplaceResourceURLRequest):
+    try:
+        status = replace_resource(path_or_url=req.url, target=req.target, reason=req.reason)
+        return {"status": "success", "data": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/replace_file", summary="Replace a Resource via File Upload")
+def api_replace_resource_file(
+    file: UploadFile = File(..., description="Uploaded file for replacement"),
+    target: str = Form(..., description="Target URI (e.g., viking://...)"),
+    reason: str = Form("", description="Reason for replacing the resource")
+):
+    try:
+        # Create a temp directory
+        temp_dir = tempfile.mkdtemp()
+        temp_file_path = os.path.join(temp_dir, file.filename)
+        
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        status = replace_resource(path_or_url=temp_file_path, target=target, reason=reason)
         
         # Attempt to clean up
         try:
@@ -463,6 +505,7 @@ def api_stat(uri: str):
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/resources/wait_processed", summary="Wait Operations Processed")
 def api_wait_processed(timeout: float = None):

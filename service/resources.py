@@ -23,6 +23,34 @@ def add_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, A
 
     return status
 
+def replace_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, Any]:
+    """Replace resource in OpenViking
+
+    Args:
+        path_or_url: Path or URL for replacement
+        target: Target URI to replace
+        reason: Reason for replacing
+    """
+    client = OpenVK.get_client()
+    
+    try:
+        client.stat(target)
+        # If stat succeeds, it exists, so we remove it
+        client.rm(target)
+    except Exception:
+        # Resource might not exist, proceed
+        pass
+        
+    client.add_resource(
+        path_or_url,
+        target=target,
+        reason=reason,
+    )
+
+    status = client.wait_processed()
+
+    return status
+
 def list_resources(target: str, simple: bool = False, recursive: bool = False) -> List[Any]:
     """List resources in OpenViking (resources scope only)
 
