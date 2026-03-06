@@ -114,18 +114,11 @@ class MessageItem(BaseModel):
     role: str = Field(..., description="Role of the sender ('user' or 'assistant')")
     content: str = Field(..., description="Message content")
 
-class BaseSearchRequest(BaseModel):
-    query: str = Field(..., description="Search query string")
-    target_uri: str = Field("", description="Optional target URI context")
-    limit: int = Field(10, description="Limit on number of results")
-    score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
-    filter: Optional[Dict] = Field(None, description="Optional filter dict")
-
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query string")
-    msgs: List[MessageItem] = Field(..., description="List of previous conversation messages")
     target_uri: str = Field("", description="Optional target URI context")
     limit: int = Field(10, description="Limit on number of results")
+    msgs: Optional[List[MessageItem]] = Field([],description="List of previous conversation messages")
     score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
     filter: Optional[Dict] = Field(None, description="Optional filter dict")
 
@@ -325,15 +318,24 @@ def api_glob_resources(req: GlobResourceRequest):
 def api_find_resources(req: FindRequest):
     try:
         results = find_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold)
-        return {"status": "success", "data": results}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/retrieval/base_search", summary="Base Search Resources")
-def api_base_search(req: BaseSearchRequest):
-    try:
-        results = search_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
-        return {"status": "success", "data": results}
+        
+        # safely convert to dict
+        if hasattr(results, "to_dict"):
+            res_data = results.to_dict()
+            if hasattr(results, "query_results") and results.query_results:
+                res_data["query_results"] = [
+                    {
+                        "query": results._query_to_dict(qr.query) if hasattr(results, "_query_to_dict") else str(qr.query),
+                        "matched_contexts": [results._context_to_dict(c) if hasattr(results, "_context_to_dict") else c.uri for c in qr.matched_contexts],
+                        "searched_directories": qr.searched_directories,
+                        "thinking_trace": qr.thinking_trace.to_dict() if hasattr(qr.thinking_trace, "to_dict") else {}
+                    }
+                    for qr in results.query_results
+                ]
+        else:
+            res_data = results
+            
+        return {"status": "success", "data": res_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -341,15 +343,34 @@ def api_base_search(req: BaseSearchRequest):
 def api_season_aware_search(req: SearchRequest):
     try:
         # Reconstruct internal message objects
-        internal_msgs = []
-        for msg in req.msgs:
-            if msg.role == "user":
-                internal_msgs.append(Message.create_user(msg.content))
-            else:
-                internal_msgs.append(Message.create_assistant(msg.content))
+        if len(req.msgs) == 0:
+            results = search_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
+        else:
+            internal_msgs = []
+            for msg in req.msgs:
+                if msg.role == "user":
+                    internal_msgs.append(Message.create_user(msg.content))
+                else:
+                    internal_msgs.append(Message.create_assistant(msg.content))
+            results = season_aware_search(query=req.query, msgs=internal_msgs, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
         
-        results = season_aware_search(query=req.query, msgs=internal_msgs, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
-        return {"status": "success", "data": results}
+        # safely convert to dict
+        if hasattr(results, "to_dict"):
+            res_data = results.to_dict()
+            if hasattr(results, "query_results") and results.query_results:
+                res_data["query_results"] = [
+                    {
+                        "query": results._query_to_dict(qr.query) if hasattr(results, "_query_to_dict") else str(qr.query),
+                        "matched_contexts": [results._context_to_dict(c) if hasattr(results, "_context_to_dict") else c.uri for c in qr.matched_contexts],
+                        "searched_directories": qr.searched_directories,
+                        "thinking_trace": qr.thinking_trace.to_dict() if hasattr(qr.thinking_trace, "to_dict") else {}
+                    }
+                    for qr in results.query_results
+                ]
+        else:
+            res_data = results
+            
+        return {"status": "success", "data": res_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
