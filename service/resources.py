@@ -1,7 +1,10 @@
 from .client import OpenVK
 from typing import Dict, Any, List, Union
 import os
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
+import tempfile
+import requests
+import shutil
 
 def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool = False) -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
@@ -14,11 +17,32 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
     """
     client = OpenVK.get_client()
 
-    if path_or_url.startswith("http"):
-        path = urlparse(path_or_url).path
+    tmp_path_or_url = path_or_url
+
+    tmp_dir = None
+
+    if tmp_path_or_url.startswith("http"):
+        # decode tmp_path_or_url
+        decoded_url = unquote(tmp_path_or_url)
+        path = urlparse(decoded_url).path
         filename = os.path.basename(path)
+
+        response = requests.get(tmp_path_or_url, stream=True)
+        response.raise_for_status()
+        tmp_dir = tempfile.mkdtemp()
+        # If the filename from the URL is empty or lacks an extension, fallback to a default
+        actual_filename = filename if filename else "downloaded_file"
+        tmp_path_or_url = os.path.join(tmp_dir, actual_filename)
+        
+        with open(tmp_path_or_url, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        
+
+
     else:
-        filename = os.path.basename(path_or_url)
+        filename = os.path.basename(tmp_path_or_url)
 
     name_only = os.path.splitext(filename)[0]
     file_url = os.path.join(target, name_only)
@@ -41,16 +65,22 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
     elif is_file_existed:
         return {"is_replaced": is_replaced, "msg": "Resource already exists"}
 
-    # Option 1: Wait inline
-    client.add_resource(
-        path_or_url,
+     # Option 1: Wait inline
+    result = client.add_resource(
+        tmp_path_or_url,
         target=target,
         reason=reason,
     )
 
-    client.wait_processed()
+    print(result)
 
-    return {"is_replaced": is_replaced, "msg": "Resource added successfully"}
+    try:
+        if tmp_dir is not None:
+            os.remove(tmp_path_or_url)
+    finally:
+        pass
+            
+    return {"is_replaced": is_replaced, "msg": "Resource added successfully", "result": result}
 
     
 
