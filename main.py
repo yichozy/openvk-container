@@ -21,7 +21,6 @@ from service.resources import (
     export_ovpack,
     import_ovpack,
     stat,
-    stat_by_path,
     mkdir,
     wait_processed
 )
