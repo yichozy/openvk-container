@@ -27,6 +27,7 @@ from service.resources import (
 from service.retrieval import (
     find_resources,
     season_aware_search,
+    search_resources,
     read_resources_progressively,
     read_resource
 )
@@ -106,15 +107,27 @@ class UnlinkResourceRequest(BaseModel):
 class FindRequest(BaseModel):
     query: str = Field(..., description="Search query string")
     target_uri: str = Field("", description="Optional target URI context")
+    limit: int = Field(10, description="Limit on number of results")
+    score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
 
 class MessageItem(BaseModel):
     role: str = Field(..., description="Role of the sender ('user' or 'assistant')")
     content: str = Field(..., description="Message content")
 
+class BaseSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query string")
+    target_uri: str = Field("", description="Optional target URI context")
+    limit: int = Field(10, description="Limit on number of results")
+    score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
+    filter: Optional[Dict] = Field(None, description="Optional filter dict")
+
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query string")
     msgs: List[MessageItem] = Field(..., description="List of previous conversation messages")
     target_uri: str = Field("", description="Optional target URI context")
+    limit: int = Field(10, description="Limit on number of results")
+    score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
+    filter: Optional[Dict] = Field(None, description="Optional filter dict")
 
 class MatchedContextInput(BaseModel):
     uri: str
@@ -311,7 +324,15 @@ def api_glob_resources(req: GlobResourceRequest):
 @app.post("/retrieval/find", summary="Find Resources")
 def api_find_resources(req: FindRequest):
     try:
-        results = find_resources(query=req.query, target_uri=req.target_uri)
+        results = find_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold)
+        return {"status": "success", "data": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/retrieval/base_search", summary="Base Search Resources")
+def api_base_search(req: BaseSearchRequest):
+    try:
+        results = search_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
         return {"status": "success", "data": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -327,7 +348,7 @@ def api_season_aware_search(req: SearchRequest):
             else:
                 internal_msgs.append(Message.create_assistant(msg.content))
         
-        results = season_aware_search(query=req.query, msgs=internal_msgs, target_uri=req.target_uri)
+        results = season_aware_search(query=req.query, msgs=internal_msgs, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
         return {"status": "success", "data": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
