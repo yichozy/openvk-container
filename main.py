@@ -67,6 +67,7 @@ class AddResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL to add")
     target: str = Field(..., description="Target URI (e.g., viking://...)")
     reason: str = Field("", description="Reason for adding the resource")
+    replace: bool = Field(False, description="Whether to remove the old resource before adding")
 
 class ReplaceResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL for replacement")
@@ -131,7 +132,7 @@ class ReadProgressivelyRequest(BaseModel):
 @app.post("/resources/add_url", summary="Add a Resource via URL")
 def api_add_resource_url(req: AddResourceURLRequest):
     try:
-        status = add_resource(path_or_url=req.url, target=req.target, reason=req.reason)
+        status = add_resource(path_or_url=req.url, target=req.target, reason=req.reason, replace=req.replace)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -140,7 +141,8 @@ def api_add_resource_url(req: AddResourceURLRequest):
 def api_add_resource_file(
     file: UploadFile = File(..., description="Uploaded file to add"),
     target: str = Form(..., description="Target URI (e.g., viking://...)"),
-    reason: str = Form("", description="Reason for adding the resource")
+    reason: str = Form("", description="Reason for adding the resource"),
+    replace: bool = Form(False, description="Whether to remove the old resource before adding")
 ):
     try:
         # Create a temp directory
@@ -150,7 +152,7 @@ def api_add_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason)
+        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason, replace=replace)
         
         # Attempt to clean up
         try:
@@ -203,7 +205,8 @@ async def api_add_resource_bytes(
     request: Request,
     filename: str,
     target: str,
-    reason: str = ""
+    reason: str = "",
+    replace: bool = False
 ):
     try:
         body_bytes = await request.body()
@@ -215,7 +218,7 @@ async def api_add_resource_bytes(
         with open(temp_file_path, "wb") as buffer:
             buffer.write(body_bytes)
             
-        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason)
+        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason, replace=replace)
         
         # Attempt to clean up
         try:

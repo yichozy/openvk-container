@@ -1,16 +1,46 @@
 from .client import OpenVK
 from typing import Dict, Any, List, Union
+import os
+from urllib.parse import urlparse
 
-def add_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, Any]:
+def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool = False) -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
 
     Args:
         path_or_url: Path or URL to add
         target: Target URI
         reason: Reason for adding
+        replace: Whether to remove the old resource before adding
     """
     client = OpenVK.get_client()
+
+    if path_or_url.startswith("http"):
+        path = urlparse(path_or_url).path
+        filename = os.path.basename(path)
+    else:
+        filename = os.path.basename(path_or_url)
+
+    name_only = os.path.splitext(filename)[0]
+    file_url = os.path.join(target, name_only)
+
+    is_file_existed = False
+    is_replaced = False
+
+    try:
+        client.stat(file_url)
+        is_file_existed = True
+    except Exception as e:
+        # Resource might not exist, proceed
+        print(f"Resource {target} not found: {e}")
     
+    # if replace = True, remove the old resource
+    if is_file_existed and replace: 
+        client.rm(file_url, recursive=True)
+        is_replaced = True
+
+    elif is_file_existed:
+        return {"is_replaced": is_replaced, "msg": "Resource already exists"}
+
     # Option 1: Wait inline
     client.add_resource(
         path_or_url,
@@ -18,10 +48,11 @@ def add_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, A
         reason=reason,
     )
 
-    status = client.wait_processed()
+    client.wait_processed()
 
+    return {"is_replaced": is_replaced, "msg": "Resource added successfully"}
 
-    return status
+    
 
 def replace_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, Any]:
     """Replace resource in OpenViking
@@ -31,25 +62,7 @@ def replace_resource(path_or_url: str, target: str, reason: str = "") -> Dict[st
         target: Target URI to replace
         reason: Reason for replacing
     """
-    client = OpenVK.get_client()
-    
-    try:
-        client.stat(target)
-        # If stat succeeds, it exists, so we remove it
-        client.rm(target)
-    except Exception:
-        # Resource might not exist, proceed
-        pass
-        
-    client.add_resource(
-        path_or_url,
-        target=target,
-        reason=reason,
-    )
-
-    status = client.wait_processed()
-
-    return status
+    return add_resource(path_or_url, target, reason=reason, replace=True)
 
 def list_resources(target: str, simple: bool = False, recursive: bool = False) -> List[Any]:
     """List resources in OpenViking (resources scope only)
