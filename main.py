@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import List, Union, Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 import tempfile
@@ -143,6 +143,36 @@ def api_add_resource_file(
         
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+            
+        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason)
+        
+        # Attempt to clean up
+        try:
+            os.remove(temp_file_path)
+            os.rmdir(temp_dir)
+        except Exception:
+            pass
+            
+        return {"status": "success", "data": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/add_bytes", summary="Add a Resource via Raw Bytes")
+async def api_add_resource_bytes(
+    request: Request,
+    filename: str,
+    target: str,
+    reason: str = ""
+):
+    try:
+        body_bytes = await request.body()
+        
+        # Create a temp directory
+        temp_dir = tempfile.mkdtemp()
+        temp_file_path = os.path.join(temp_dir, filename)
+        
+        with open(temp_file_path, "wb") as buffer:
+            buffer.write(body_bytes)
             
         status = add_resource(path_or_url=temp_file_path, target=target, reason=reason)
         

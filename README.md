@@ -57,7 +57,7 @@ The container includes a built-in Client REST API powered by FastAPI. This API a
 
 ### API Capabilities
 
-- **Resources (`/resources/*`):** Add (via URL or direct file upload), list, move, link, delete, and perform file system operations like `mkdir`, `stat`, `tree`, `grep`, and `glob`. Also supports importing and exporting `.ovpack` archives.
+- **Resources (`/resources/*`):** Add (via URL, direct file upload, or raw byte stream), list, move, link, delete, and perform file system operations like `mkdir`, `stat`, `tree`, `grep`, and `glob`. Also supports importing and exporting `.ovpack` archives.
 - **Retrieval (`/retrieval/*`):** Perform vector-based season-aware semantic searches, specific text finds, and progressive reading.
 - **Sessions (`/sessions/*`):** Chat session management, including creation, listing, message addition, and memory commits.
 - **Skills (`/skills/*`):** Register new tools and AI skills dynamically.
@@ -65,7 +65,9 @@ The container includes a built-in Client REST API powered by FastAPI. This API a
 
 ### File Uploads Example
 
-To upload a document to your AI's context via the client API:
+There are two primary ways to upload a document to your AI's context via the client API.
+
+**1. Using Multipart Form Uploads (`add_file`)**
 
 ```bash
 curl -X 'POST' \
@@ -75,4 +77,16 @@ curl -X 'POST' \
   -F 'file=@/path/to/your/document.pdf' \
   -F 'target=viking://resources/docs/' \
   -F 'reason=Adding new project specification'
+```
+
+**2. Using Raw Byte Streams (`add_bytes`)**
+
+This bypasses `multipart/form-data` entirely and consumes the raw request body payload, which is optimal for integrations avoiding heavy multipart wrapping routines:
+
+```bash
+curl -X 'POST' \
+  'http://localhost:1934/resources/add_bytes?filename=document.pdf&target=viking://resources/docs/&reason=Uploading%20spec' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/octet-stream' \
+  --data-binary '@/path/to/your/document.pdf'
 ```
