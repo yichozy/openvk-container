@@ -125,6 +125,14 @@ class SearchRequest(BaseModel):
 class ReadProgressivelyRequest(BaseModel):
     urls: List[str] = Field(..., description="List of resource URLs to read context from")
 
+class ReadProgressivelyResponseItem(BaseModel):
+    url: str = Field(..., description="The URL of the resource")
+    context: str = Field(..., description="The concatenated context read (abstract, overview, and content)")
+
+class ReadProgressivelyResponse(BaseModel):
+    status: str = Field(..., description="Status of the operation")
+    data: List[ReadProgressivelyResponseItem] = Field(..., description="List of processed resource items")
+
 
 # ==========================================
 # Routes: Resources
@@ -369,7 +377,7 @@ def api_season_aware_search(req: SearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/retrieval/read_progressively", summary="Read Resources Progressively")
+@app.post("/retrieval/read_progressively", summary="Read Resources Progressively", response_model=ReadProgressivelyResponse)
 def api_read_progressively(req: ReadProgressivelyRequest):
     try:
         result = read_resources_progressively(urls=req.urls)

@@ -39,17 +39,23 @@ def season_aware_search(query: str, msgs: List[Message], target_uri: str = "", l
     return results
 
 
-def read_resources_progressively(urls: List[str]) -> str:
+def read_resources_progressively(urls: List[str]) -> List[Dict[str, Any]]:
     """Read resource from OpenViking (resources scope only)
 
     Args:
         urls: List of resource URLs
+        
+    Returns:
+        A list of dictionaries containing 'url' and the aggregated 'context'
     """
     client = OpenVK.get_client()
     
-    ret_obj = ""
+    resource_docs = []
     
     for url in urls:
+
+        ret_obj = []
+
         try:
             stat_info = client.stat(url)
             # handle cases where stat returns a dict or object
@@ -58,22 +64,31 @@ def read_resources_progressively(urls: List[str]) -> str:
             # Get L0 (abstract)
             abstract = client.abstract(url)
             if abstract:
-                ret_obj += abstract
+                ret_obj.append(abstract)
 
             if not is_leaf:
                 # Get L1 (overview)
                 overview = client.overview(url)
                 if overview:
-                    ret_obj += overview
+                    ret_obj.append(overview)
             else:
                 # Load L2 (content)
                 content = client.read(url)
                 if content:
-                    ret_obj += content
+                    ret_obj.append(content)
         except Exception as e:
             pass
 
-    return ret_obj
+        if len(ret_obj) > 0 :
+
+            contents = "\n\n".join(ret_obj)
+
+            resource_docs.append({
+                "url": url,
+                "context": contents
+            })
+
+    return resource_docs
 
 
 def read_resource(target: str, level: str = "L2") -> str:
