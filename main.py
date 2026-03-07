@@ -122,13 +122,8 @@ class SearchRequest(BaseModel):
     score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
     filter: Optional[Dict] = Field(None, description="Optional filter dict")
 
-class MatchedContextInput(BaseModel):
-    uri: str
-    abstract: str = ""
-    is_leaf: bool = True
-
 class ReadProgressivelyRequest(BaseModel):
-    resources: List[MatchedContextInput] = Field(..., description="List of resource contexts to read context from")
+    urls: List[str] = Field(..., description="List of resource URLs to read context from")
 
 
 # ==========================================
@@ -377,16 +372,7 @@ def api_season_aware_search(req: SearchRequest):
 @app.post("/retrieval/read_progressively", summary="Read Resources Progressively")
 def api_read_progressively(req: ReadProgressivelyRequest):
     try:
-        # Convert internal mocked/struct representation
-        # It needs objects behaving like 'MatchedContext' structurally. Pydantic input passes objects that mimic it via duck typing if mapped.
-        class TempContext:
-            def __init__(self, uri, abstract, is_leaf):
-                self.uri = uri
-                self.abstract = abstract
-                self.is_leaf = is_leaf
-
-        contexts = [TempContext(r.uri, r.abstract, r.is_leaf) for r in req.resources]
-        result = read_resources_progressively(contexts)
+        result = read_resources_progressively(urls=req.urls)
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
