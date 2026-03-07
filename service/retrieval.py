@@ -64,18 +64,18 @@ def read_resources_progressively(urls: List[str]) -> List[Dict[str, Any]]:
             # Get L0 (abstract)
             abstract = client.abstract(url)
             if abstract:
-                ret_obj.append(abstract)
+                ret_obj.append("Abstract: " + abstract)
 
             if not is_leaf:
                 # Get L1 (overview)
                 overview = client.overview(url)
                 if overview:
-                    ret_obj.append(overview)
+                    ret_obj.append("Overview: " + overview)
             else:
                 # Load L2 (content)
                 content = client.read(url)
                 if content:
-                    ret_obj.append(content)
+                    ret_obj.append("File content: " +content)
         except Exception as e:
             pass
 

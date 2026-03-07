@@ -389,7 +389,7 @@ def api_read_progressively(req: ReadProgressivelyRequest):
 def api_read_resource(target: str, level: str = "L2"):
     try:
         data = read_resource(target=target, level=level)
-        return {"status": "success", "data": data}
+        return {"status": "success", "level": level, "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

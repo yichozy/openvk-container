@@ -58,10 +58,32 @@ The container includes a built-in Client REST API powered by FastAPI. This API a
 ### API Capabilities
 
 - **Resources (`/resources/*`):** Add (via URL, direct file upload, or raw byte stream), list, move, link, delete, and perform file system operations like `mkdir`, `stat`, `tree`, `grep`, and `glob`. Also supports importing and exporting `.ovpack` archives.
-- **Retrieval (`/retrieval/*`):** Perform vector-based season-aware semantic searches, specific text finds, and progressive reading.
+- **Retrieval (`/retrieval/*`):** Perform vector-based season-aware semantic searches, specific text finds, and progressive reading (with explicit `level` properties returned in single reads, and clear content prefixes like "Abstract: ", "Overview: " and "File content: " in progressive arrays).
 - **Sessions (`/sessions/*`):** Chat session management, including creation, listing, message addition, and memory commits.
 - **Skills (`/skills/*`):** Register new tools and AI skills dynamically.
 - **System (`/system/*`):** Check container health status and internal component metrics.
+
+### Retrieval Example
+
+**Reading a Specific Resource Level (`/retrieval/read`)**
+
+The `read` endpoint now includes the explicitly requested `level` in its successful JSON response. This allows calling clients to definitively know what level (L0: Abstract, L1: Overview, L2: Full Content) was retrieved:
+
+```bash
+curl -G 'http://localhost:1934/retrieval/read' \
+  --data-urlencode 'target=viking://resources/docs/project.md' \
+  --data-urlencode 'level=L2'
+```
+
+**Response:**
+
+```json
+{
+  "status": "success",
+  "level": "L2",
+  "data": "# Project Title\n..."
+}
+```
 
 ### File Uploads Example
 
