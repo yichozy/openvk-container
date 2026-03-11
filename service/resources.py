@@ -6,7 +6,7 @@ import tempfile
 import requests
 import shutil
 
-def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool = False) -> Dict[str, Any]:
+def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True) -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
 
     Args:
@@ -14,6 +14,8 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
         target: Target URI
         reason: Reason for adding
         replace: Whether to remove the old resource before adding
+        instruction: Instruction for adding
+        wait: Whether to wait for async operations to complete
     """
     client = OpenVK.get_client()
 
@@ -70,6 +72,8 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
         tmp_path_or_url,
         target=target,
         reason=reason,
+        instruction=instruction,
+        wait=wait,
     )
 
     print(result)
@@ -84,15 +88,17 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
 
     
 
-def replace_resource(path_or_url: str, target: str, reason: str = "") -> Dict[str, Any]:
+def replace_resource(path_or_url: str, target: str, reason: str = "", instruction: str = "", wait: bool = True) -> Dict[str, Any]:
     """Replace resource in OpenViking
 
     Args:
         path_or_url: Path or URL for replacement
         target: Target URI to replace
         reason: Reason for replacing
+        instruction: Instruction for replacing
+        wait: Whether to wait for async operations to complete
     """
-    return add_resource(path_or_url, target, reason=reason, replace=True)
+    return add_resource(path_or_url, target, reason=reason, replace=True, instruction=instruction, wait=wait)
 
 def list_resources(target: str, simple: bool = False, recursive: bool = False) -> List[Any]:
     """List resources in OpenViking (resources scope only)
