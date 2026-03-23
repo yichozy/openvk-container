@@ -22,7 +22,8 @@ from service.resources import (
     import_ovpack,
     stat,
     mkdir,
-    wait_processed
+    wait_processed,
+    build_index
 )
 from service.retrieval import (
     find_resources,
@@ -58,6 +59,9 @@ class ExportOvpackRequest(BaseModel):
 class MkdirRequest(BaseModel):
     uri: str = Field(..., description="URI to create directory for")
 
+class BuildIndexRequest(BaseModel):
+    resource_uris: Union[str, List[str]] = Field(..., description="Resource URIs to build index for")
+
 class AddMessageRequest(BaseModel):
     role: str = Field(..., description="Role ('user' or 'assistant')")
     content: Optional[str] = None
@@ -72,6 +76,8 @@ class AddResourceURLRequest(BaseModel):
     replace: bool = Field(False, description="Whether to remove the old resource before adding")
     instruction: str = Field("", description="Instruction for processing the resource")
     wait: bool = Field(True, description="Whether to wait for async operations to complete")
+    timeout: Optional[float] = Field(None, description="Wait timeout in seconds")
+    build_index: bool = Field(True, description="Whether to build vector index immediately")
 
 class ReplaceResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL for replacement")
@@ -80,6 +86,8 @@ class ReplaceResourceURLRequest(BaseModel):
     reason: str = Field("", description="Reason for replacing the resource")
     instruction: str = Field("", description="Instruction for replacing the resource")
     wait: bool = Field(True, description="Whether to wait for async operations to complete")
+    timeout: Optional[float] = Field(None, description="Wait timeout in seconds")
+    build_index: bool = Field(True, description="Whether to build vector index immediately")
 
 class GrepResourceRequest(BaseModel):
     uri: str = Field(..., description="Viking URI to search in")
@@ -147,7 +155,7 @@ class ReadProgressivelyResponse(BaseModel):
 @app.post("/resources/add_url", summary="Add a Resource via URL")
 def api_add_resource_url(req: AddResourceURLRequest):
     try:
-        status = add_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, replace=req.replace, instruction=req.instruction, wait=req.wait)
+        status = add_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, replace=req.replace, instruction=req.instruction, wait=req.wait, timeout=req.timeout, build_index=req.build_index)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -160,7 +168,9 @@ def api_add_resource_file(
     reason: str = Form("", description="Reason for adding the resource"),
     replace: bool = Form(False, description="Whether to remove the old resource before adding"),
     instruction: str = Form("", description="Instruction for processing the resource"),
-    wait: bool = Form(True, description="Whether to wait for async operations to complete")
+    wait: bool = Form(True, description="Whether to wait for async operations to complete"),
+    timeout: Optional[float] = Form(None, description="Wait timeout in seconds"),
+    build_index: bool = Form(True, description="Whether to build vector index immediately")
 ):
     try:
         # Create a temp directory
@@ -170,7 +180,7 @@ def api_add_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait)
+        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
         
         # Attempt to clean up
         try:
@@ -186,7 +196,7 @@ def api_add_resource_file(
 @app.post("/resources/replace_url", summary="Replace a Resource via URL")
 def api_replace_resource_url(req: ReplaceResourceURLRequest):
     try:
-        status = replace_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, instruction=req.instruction, wait=req.wait)
+        status = replace_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, instruction=req.instruction, wait=req.wait, timeout=req.timeout, build_index=req.build_index)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -198,7 +208,9 @@ def api_replace_resource_file(
     parent: Optional[str] = Form(None, description="Target parent URI (must already exist)"),
     reason: str = Form("", description="Reason for replacing the resource"),
     instruction: str = Form("", description="Instruction for replacing the resource"),
-    wait: bool = Form(True, description="Whether to wait for async operations to complete")
+    wait: bool = Form(True, description="Whether to wait for async operations to complete"),
+    timeout: Optional[float] = Form(None, description="Wait timeout in seconds"),
+    build_index: bool = Form(True, description="Whether to build vector index immediately")
 ):
     try:
         # Create a temp directory
@@ -208,7 +220,7 @@ def api_replace_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        status = replace_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, instruction=instruction, wait=wait)
+        status = replace_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
         
         # Attempt to clean up
         try:
@@ -230,7 +242,9 @@ async def api_add_resource_bytes(
     reason: str = "",
     replace: bool = False,
     instruction: str = "",
-    wait: bool = True
+    wait: bool = True,
+    timeout: Optional[float] = None,
+    build_index: bool = True
 ):
     try:
         body_bytes = await request.body()
@@ -242,7 +256,7 @@ async def api_add_resource_bytes(
         with open(temp_file_path, "wb") as buffer:
             buffer.write(body_bytes)
             
-        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait)
+        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
         
         # Attempt to clean up
         try:
@@ -564,6 +578,14 @@ def api_stat(uri: str):
 def api_wait_processed(timeout: float = None):
     try:
         data = wait_processed(timeout)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resources/build_index", summary="Trigger Build Index")
+def api_build_index(req: BuildIndexRequest):
+    try:
+        data = build_index(resource_uris=req.resource_uris)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

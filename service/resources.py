@@ -1,12 +1,13 @@
 from .client import OpenVK
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Optional
 import os
 from urllib.parse import urlparse, unquote
 import tempfile
 import requests
 import shutil
+from openviking_cli.utils import run_async
 
-def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True) -> Dict[str, Any]:
+def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True, timeout: Optional[float] = None, build_index: bool = True) -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
 
     Args:
@@ -84,6 +85,8 @@ def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: s
         reason=reason,
         instruction=instruction,
         wait=wait,
+        timeout=timeout,
+        build_index=build_index,
     )
 
     print(result)
@@ -98,7 +101,7 @@ def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: s
 
     
 
-def replace_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", instruction: str = "", wait: bool = True) -> Dict[str, Any]:
+def replace_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", instruction: str = "", wait: bool = True, timeout: Optional[float] = None, build_index: bool = True) -> Dict[str, Any]:
     """Replace resource in OpenViking
 
     Args:
@@ -108,8 +111,10 @@ def replace_resource(path_or_url: str, to: str = None, parent: str = None, reaso
         reason: Reason for replacing
         instruction: Instruction for replacing
         wait: Whether to wait for async operations to complete
+        timeout: Wait timeout in seconds
+        build_index: Whether to build vector index immediately
     """
-    return add_resource(path_or_url, to=to, parent=parent, reason=reason, replace=True, instruction=instruction, wait=wait)
+    return add_resource(path_or_url, to=to, parent=parent, reason=reason, replace=True, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
 
 def list_resources(target: str, simple: bool = False, recursive: bool = False) -> List[Any]:
     """List resources in OpenViking (resources scope only)
@@ -192,4 +197,10 @@ def wait_processed(timeout: float = None) -> Dict[str, Any]:
     client = OpenVK.get_client()
     return client.wait_processed(timeout)
 
-
+def build_index(resource_uris: Union[str, List[str]], **kwargs) -> Dict[str, Any]:
+    """Manually trigger index building."""
+    client = OpenVK.get_client()
+    if hasattr(client, "build_index"):
+        return client.build_index(resource_uris, **kwargs)
+    else:
+        return run_async(client._async_client.build_index(resource_uris, **kwargs))
