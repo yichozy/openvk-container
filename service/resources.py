@@ -6,18 +6,24 @@ import tempfile
 import requests
 import shutil
 
-def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True) -> Dict[str, Any]:
+def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True) -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
 
     Args:
         path_or_url: Path or URL to add
-        target: Target URI
+        to: Exact target URI (must not exist yet)
+        parent: Target parent URI (must already exist)
         reason: Reason for adding
         replace: Whether to remove the old resource before adding
         instruction: Instruction for adding
         wait: Whether to wait for async operations to complete
     """
     client = OpenVK.get_client()
+    
+    if to and parent:
+        raise ValueError("Cannot specify both 'to' and 'parent' at the same time.")
+    if not to and not parent:
+        raise ValueError("Must specify either 'to' or 'parent'.")
 
     tmp_path_or_url = path_or_url
 
@@ -46,8 +52,11 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
     else:
         filename = os.path.basename(tmp_path_or_url)
 
-    name_only = os.path.splitext(filename)[0]
-    file_url = os.path.join(target, name_only)
+    if to:
+        file_url = to
+    else:
+        name_only = os.path.splitext(filename)[0]
+        file_url = os.path.join(parent, name_only)
 
     is_file_existed = False
     is_replaced = False
@@ -57,7 +66,7 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
         is_file_existed = True
     except Exception as e:
         # Resource might not exist, proceed
-        print(f"Resource {target} not found: {e}")
+        print(f"Resource {file_url} not found: {e}")
     
     # if replace = True, remove the old resource
     if is_file_existed and replace: 
@@ -70,7 +79,8 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
      # Option 1: Wait inline
     result = client.add_resource(
         tmp_path_or_url,
-        target=target,
+        to=to,
+        parent=parent,
         reason=reason,
         instruction=instruction,
         wait=wait,
@@ -88,17 +98,18 @@ def add_resource(path_or_url: str, target: str, reason: str = "", replace: bool 
 
     
 
-def replace_resource(path_or_url: str, target: str, reason: str = "", instruction: str = "", wait: bool = True) -> Dict[str, Any]:
+def replace_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", instruction: str = "", wait: bool = True) -> Dict[str, Any]:
     """Replace resource in OpenViking
 
     Args:
         path_or_url: Path or URL for replacement
-        target: Target URI to replace
+        to: Exact target URI to replace
+        parent: Target parent URI
         reason: Reason for replacing
         instruction: Instruction for replacing
         wait: Whether to wait for async operations to complete
     """
-    return add_resource(path_or_url, target, reason=reason, replace=True, instruction=instruction, wait=wait)
+    return add_resource(path_or_url, to=to, parent=parent, reason=reason, replace=True, instruction=instruction, wait=wait)
 
 def list_resources(target: str, simple: bool = False, recursive: bool = False) -> List[Any]:
     """List resources in OpenViking (resources scope only)

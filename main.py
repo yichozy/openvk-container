@@ -66,7 +66,8 @@ class AddMessageRequest(BaseModel):
 
 class AddResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL to add")
-    target: str = Field(..., description="Target URI (e.g., viking://...)")
+    to: Optional[str] = Field(None, description="Exact target URI (must not exist yet)")
+    parent: Optional[str] = Field(None, description="Target parent URI (must already exist)")
     reason: str = Field("", description="Reason for adding the resource")
     replace: bool = Field(False, description="Whether to remove the old resource before adding")
     instruction: str = Field("", description="Instruction for processing the resource")
@@ -74,7 +75,8 @@ class AddResourceURLRequest(BaseModel):
 
 class ReplaceResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL for replacement")
-    target: str = Field(..., description="Target URI (e.g., viking://...)")
+    to: Optional[str] = Field(None, description="Exact target URI (must not exist yet)")
+    parent: Optional[str] = Field(None, description="Target parent URI (must already exist)")
     reason: str = Field("", description="Reason for replacing the resource")
     instruction: str = Field("", description="Instruction for replacing the resource")
     wait: bool = Field(True, description="Whether to wait for async operations to complete")
@@ -145,7 +147,7 @@ class ReadProgressivelyResponse(BaseModel):
 @app.post("/resources/add_url", summary="Add a Resource via URL")
 def api_add_resource_url(req: AddResourceURLRequest):
     try:
-        status = add_resource(path_or_url=req.url, target=req.target, reason=req.reason, replace=req.replace, instruction=req.instruction, wait=req.wait)
+        status = add_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, replace=req.replace, instruction=req.instruction, wait=req.wait)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -153,7 +155,8 @@ def api_add_resource_url(req: AddResourceURLRequest):
 @app.post("/resources/add_file", summary="Add a Resource via File Upload")
 def api_add_resource_file(
     file: UploadFile = File(..., description="Uploaded file to add"),
-    target: str = Form(..., description="Target URI (e.g., viking://...)"),
+    to: Optional[str] = Form(None, description="Exact target URI (must not exist yet)"),
+    parent: Optional[str] = Form(None, description="Target parent URI (must already exist)"),
     reason: str = Form("", description="Reason for adding the resource"),
     replace: bool = Form(False, description="Whether to remove the old resource before adding"),
     instruction: str = Form("", description="Instruction for processing the resource"),
@@ -167,7 +170,7 @@ def api_add_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason, replace=replace, instruction=instruction, wait=wait)
+        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait)
         
         # Attempt to clean up
         try:
@@ -183,7 +186,7 @@ def api_add_resource_file(
 @app.post("/resources/replace_url", summary="Replace a Resource via URL")
 def api_replace_resource_url(req: ReplaceResourceURLRequest):
     try:
-        status = replace_resource(path_or_url=req.url, target=req.target, reason=req.reason, instruction=req.instruction, wait=req.wait)
+        status = replace_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, instruction=req.instruction, wait=req.wait)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -191,7 +194,8 @@ def api_replace_resource_url(req: ReplaceResourceURLRequest):
 @app.post("/resources/replace_file", summary="Replace a Resource via File Upload")
 def api_replace_resource_file(
     file: UploadFile = File(..., description="Uploaded file for replacement"),
-    target: str = Form(..., description="Target URI (e.g., viking://...)"),
+    to: Optional[str] = Form(None, description="Exact target URI (must not exist yet)"),
+    parent: Optional[str] = Form(None, description="Target parent URI (must already exist)"),
     reason: str = Form("", description="Reason for replacing the resource"),
     instruction: str = Form("", description="Instruction for replacing the resource"),
     wait: bool = Form(True, description="Whether to wait for async operations to complete")
@@ -204,7 +208,7 @@ def api_replace_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        status = replace_resource(path_or_url=temp_file_path, target=target, reason=reason, instruction=instruction, wait=wait)
+        status = replace_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, instruction=instruction, wait=wait)
         
         # Attempt to clean up
         try:
@@ -221,7 +225,8 @@ def api_replace_resource_file(
 async def api_add_resource_bytes(
     request: Request,
     filename: str,
-    target: str,
+    to: Optional[str] = None,
+    parent: Optional[str] = None,
     reason: str = "",
     replace: bool = False,
     instruction: str = "",
@@ -237,7 +242,7 @@ async def api_add_resource_bytes(
         with open(temp_file_path, "wb") as buffer:
             buffer.write(body_bytes)
             
-        status = add_resource(path_or_url=temp_file_path, target=target, reason=reason, replace=replace, instruction=instruction, wait=wait)
+        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait)
         
         # Attempt to clean up
         try:
