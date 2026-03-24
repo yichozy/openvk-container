@@ -13,7 +13,15 @@ def find_resources(
     score_threshold: Optional[float] = None,
     filter: Optional[Union[Dict, FilterExpr]] = None
 ) -> FindResult:
-    """Find resources"""
+    """Find resources using pure vector similarity without session context.
+
+    Args:
+        query: The semantic search query string.
+        target_uri: The restricted directory prefix scope to search within.
+        limit: Maximum number of resources to return.
+        score_threshold: Minimum vector similarity (0.0 to 1.0).
+        filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr` directly executed by the DB.
+    """
     client = OpenVK.get_client()
 
     results = client.find(
@@ -33,7 +41,15 @@ def search_resources(
     score_threshold: Optional[float] = None, 
     filter: Optional[Union[Dict, FilterExpr]] = None
 ) -> FindResult:
-    """Search resources"""
+    """Search resources with standard context.
+
+    Args:
+        query: The semantic search query string.
+        target_uri: The restricted directory prefix scope to search within.
+        limit: Maximum number of resources to return.
+        score_threshold: Minimum vector similarity (0.0 to 1.0).
+        filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr` natively executed by the DB engine.
+    """
     client = OpenVK.get_client()
     
     results = client.search(
@@ -54,7 +70,16 @@ def season_aware_search(
     score_threshold: Optional[float] = None, 
     filter: Optional[Union[Dict, FilterExpr]] = None
 ) -> FindResult:
-    """Season-aware search"""
+    """Perform a season-aware search heavily integrating conversation memory/messages as context.
+    
+    Args:
+        query: The primary search query.
+        msgs: List of previous conversation messages representing the session thread.
+        target_uri: The restricted directory prefix scope to search within.
+        limit: Maximum number of resources to return.
+        score_threshold: Minimum vector similarity (0.0 to 1.0).
+        filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr` natively executed by the DB engine.
+    """
     client = OpenVK.get_client()
     
     session = client.session()

@@ -123,7 +123,7 @@ class FindRequest(BaseModel):
     target_uri: str = Field("", description="Optional target URI context")
     limit: int = Field(10, description="Limit on number of results")
     score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
-    filter: Optional[Dict] = Field(None, description="Optional filter dict")
+    filter: Optional[Dict] = Field(None, description="Optional JSON AST filter (e.g., {'op': 'and', 'conds': [...]})")
 
 class MessageItem(BaseModel):
     role: str = Field(..., description="Role of the sender ('user' or 'assistant')")
