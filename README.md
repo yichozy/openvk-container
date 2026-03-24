@@ -65,6 +65,40 @@ The container includes a built-in Client REST API powered by FastAPI. This API a
 
 ### Retrieval Example
 
+**Advanced Metadata Filtering (`/retrieval/find` and `/retrieval/search`)**
+
+The search endpoints support advanced metadata filtering natively by exposing the `filter` field. You can pass a robust JSON Abstract Syntax Tree (AST) directly to filter results before the vector search executes. 
+
+For example, to search for resources where the `level` is 2 **AND** the `uri` contains either `docs` **OR** `tutorials`:
+
+```bash
+curl -X 'POST' \
+  'http://localhost:1934/retrieval/search' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "query": "deployment details",
+  "limit": 5,
+  "filter": {
+    "op": "and",
+    "conds": [
+      {
+        "op": "==",
+        "field": "level",
+        "value": 2
+      },
+      {
+        "op": "or",
+        "conds": [
+          {"op": "contains", "field": "uri", "substring": "docs"},
+          {"op": "contains", "field": "uri", "substring": "tutorials"}
+        ]
+      }
+    ]
+  }
+}'
+```
+
 **Reading a Specific Resource Level (`/retrieval/read`)**
 
 The `read` endpoint now includes the explicitly requested `level` in its successful JSON response. This allows calling clients to definitively know what level (L0: Abstract, L1: Overview, L2: Full Content) was retrieved:
