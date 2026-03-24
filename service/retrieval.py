@@ -1,12 +1,19 @@
-from typing import Optional
+from typing import Optional, Dict, Any, List, Union
 from openviking.message import TextPart
 from openviking.message import Message
 from .client import OpenVK
-from typing import Dict, Any, List, Union
 from openviking_cli.retrieve.types import FindResult, MatchedContext
+from openviking.storage.expr import FilterExpr
 
-def find_resources(query: str,  target_uri: str = "", limit: int = 10, score_threshold: Optional[float] = None) -> FindResult:
 
+def find_resources(
+    query: str,  
+    target_uri: str = "", 
+    limit: int = 10, 
+    score_threshold: Optional[float] = None,
+    filter: Optional[Union[Dict, FilterExpr]] = None
+) -> FindResult:
+    """Find resources"""
     client = OpenVK.get_client()
 
     results = client.find(
@@ -14,19 +21,39 @@ def find_resources(query: str,  target_uri: str = "", limit: int = 10, score_thr
         target_uri=target_uri,
         limit=limit,
         score_threshold=score_threshold,
+        filter=filter,
     )
 
     return results
 
-def search_resources(query: str, target_uri: str = "", limit: int = 10, score_threshold: Optional[float] = None, filter: Optional[Dict] = None) -> FindResult:
+def search_resources(
+    query: str, 
+    target_uri: str = "", 
+    limit: int = 10, 
+    score_threshold: Optional[float] = None, 
+    filter: Optional[Union[Dict, FilterExpr]] = None
+) -> FindResult:
     """Search resources"""
     client = OpenVK.get_client()
     
-    results = client.search(query, target_uri=target_uri, limit=limit, score_threshold=score_threshold, filter=filter)
+    results = client.search(
+        query, 
+        target_uri=target_uri, 
+        limit=limit, 
+        score_threshold=score_threshold, 
+        filter=filter
+    )
 
     return results
 
-def season_aware_search(query: str, msgs: List[Message], target_uri: str = "", limit: int = 10, score_threshold: Optional[float] = None, filter: Optional[Dict] = None) -> FindResult:
+def season_aware_search(
+    query: str, 
+    msgs: List[Message], 
+    target_uri: str = "", 
+    limit: int = 10, 
+    score_threshold: Optional[float] = None, 
+    filter: Optional[Union[Dict, FilterExpr]] = None
+) -> FindResult:
     """Season-aware search"""
     client = OpenVK.get_client()
     
@@ -34,7 +61,14 @@ def season_aware_search(query: str, msgs: List[Message], target_uri: str = "", l
     for msg in msgs:
         session.add_message(msg.role, [TextPart(msg.content)])
 
-    results = client.search(query, session=session,target_uri=target_uri, limit=limit, score_threshold=score_threshold, filter=filter)
+    results = client.search(
+        query, 
+        session=session,
+        target_uri=target_uri, 
+        limit=limit, 
+        score_threshold=score_threshold, 
+        filter=filter
+    )
 
     return results
 

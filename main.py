@@ -123,6 +123,7 @@ class FindRequest(BaseModel):
     target_uri: str = Field("", description="Optional target URI context")
     limit: int = Field(10, description="Limit on number of results")
     score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
+    filter: Optional[Dict] = Field(None, description="Optional filter dict")
 
 class MessageItem(BaseModel):
     role: str = Field(..., description="Role of the sender ('user' or 'assistant')")
@@ -349,7 +350,13 @@ def api_glob_resources(req: GlobResourceRequest):
 @app.post("/retrieval/find", summary="Find Resources")
 def api_find_resources(req: FindRequest):
     try:
-        results = find_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold)
+        results = find_resources(
+            query=req.query, 
+            target_uri=req.target_uri, 
+            limit=req.limit, 
+            score_threshold=req.score_threshold,
+            filter=req.filter
+        )
         
         # safely convert to dict
         if hasattr(results, "to_dict"):
@@ -376,7 +383,13 @@ def api_season_aware_search(req: SearchRequest):
     try:
         # Reconstruct internal message objects
         if len(req.msgs) == 0:
-            results = search_resources(query=req.query, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
+            results = search_resources(
+                query=req.query, 
+                target_uri=req.target_uri, 
+                limit=req.limit, 
+                score_threshold=req.score_threshold, 
+                filter=req.filter
+            )
         else:
             internal_msgs = []
             for msg in req.msgs:
@@ -384,7 +397,14 @@ def api_season_aware_search(req: SearchRequest):
                     internal_msgs.append(Message.create_user(msg.content))
                 else:
                     internal_msgs.append(Message.create_assistant(msg.content))
-            results = season_aware_search(query=req.query, msgs=internal_msgs, target_uri=req.target_uri, limit=req.limit, score_threshold=req.score_threshold, filter=req.filter)
+            results = season_aware_search(
+                query=req.query, 
+                msgs=internal_msgs, 
+                target_uri=req.target_uri, 
+                limit=req.limit, 
+                score_threshold=req.score_threshold, 
+                filter=req.filter
+            )
         
         # safely convert to dict
         if hasattr(results, "to_dict"):
