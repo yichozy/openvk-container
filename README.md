@@ -57,9 +57,9 @@ The container includes a built-in Client REST API powered by FastAPI. This API a
 
 ### API Capabilities
 
-- **Resources (`/resources/*`):** Add (via URL, direct file upload, or raw byte stream), list, move, link, delete, and perform file system operations like `mkdir`, `stat`, `tree`, `grep`, and `glob`. Also supports importing and exporting `.ovpack` archives.
+- **Resources (`/resources/*`):** Add (via URL, direct file upload, or raw byte stream), replace (via URL or file), list, move, link, unlink, delete, and perform file system operations like `mkdir`, `stat`, `tree`, `grep`, and `glob`. Also supports importing and exporting `.ovpack` archives, waiting for async operations (`wait_processed`), and manual index building (`build_index`).
 - **Retrieval (`/retrieval/*`):** Perform vector-based season-aware semantic searches, specific text finds, and progressive reading (with explicit `level` properties returned in single reads, and clear content prefixes like "Abstract: ", "Overview: " and "File content: " in progressive arrays).
-- **Sessions (`/sessions/*`):** Chat session management, including creation, listing, message addition, and memory commits.
+- **Sessions (`/sessions/*`):** Chat session management, including creation, listing, retrieval, deletion, message addition, and memory commits.
 - **Skills (`/skills/*`):** Register new tools and AI skills dynamically.
 - **System (`/system/*`):** Check container health status and internal component metrics.
 
@@ -121,17 +121,33 @@ curl -G 'http://localhost:1934/retrieval/read' \
 
 ### File Uploads Example
 
-There are two primary ways to upload a document to your AI's context via the client API.
+There are two primary ways to upload a document to your AI's context via the client API. Optional parameters such as `replace`, `wait`, `build_index`, and `instruction` can also be provided.
 
 **1. Using Multipart Form Uploads (`add_file`)**
 
+You can specify either `parent` (the destination directory) OR `to` (the exact destination URI including the filename).
+
+Using `parent` (filename will be automatically derived from the uploaded file):
 ```bash
 curl -X 'POST' \
   'http://localhost:1934/resources/add_file' \
   -H 'accept: application/json' \
   -H 'Content-Type: multipart/form-data' \
   -F 'file=@/path/to/your/document.pdf' \
-  -F 'target=viking://resources/docs/' \
+  -F 'parent=viking://resources/docs/' \
+  -F 'reason=Adding new project specification' \
+  -F 'replace=true' \
+  -F 'wait=true'
+```
+
+Using `to` (specifying exact filename):
+```bash
+curl -X 'POST' \
+  'http://localhost:1934/resources/add_file' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@/path/to/your/document.pdf' \
+  -F 'to=viking://resources/docs/my_spec.pdf' \
   -F 'reason=Adding new project specification'
 ```
 
@@ -139,10 +155,13 @@ curl -X 'POST' \
 
 This bypasses `multipart/form-data` entirely and consumes the raw request body payload, which is optimal for integrations avoiding heavy multipart wrapping routines:
 
+Using `parent` (filename provided via query parameters):
 ```bash
 curl -X 'POST' \
-  'http://localhost:1934/resources/add_bytes?filename=document.pdf&target=viking://resources/docs/&reason=Uploading%20spec' \
+  'http://localhost:1934/resources/add_bytes?filename=document.pdf&parent=viking://resources/docs/&reason=Uploading%20spec' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/octet-stream' \
   --data-binary '@/path/to/your/document.pdf'
 ```
+
+Alternatively, you can provide the exact target URI with `to`: `...?filename=document.pdf&to=viking://resources/docs/document.pdf`.
