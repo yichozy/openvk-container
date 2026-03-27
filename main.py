@@ -29,6 +29,7 @@ from service.retrieval import (
     find_resources,
     season_aware_search,
     search_resources,
+    recursive_search,
     read_resources_progressively,
     read_resource
 )
@@ -136,6 +137,14 @@ class SearchRequest(BaseModel):
     msgs: Optional[List[MessageItem]] = Field([],description="List of previous conversation messages")
     score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
     filter: Optional[Dict] = Field(None, description="Optional filter dict")
+
+class RecursiveSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query string")
+    target_uri: str = Field("", description="Optional target URI context")
+    limit: int = Field(10, description="Limit on number of results")
+    score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
+    filter: Optional[Dict] = Field(None, description="Optional filter dict")
+    max_rounds: int = Field(10, description="Maximum expansion rounds")
 
 class ReadProgressivelyRequest(BaseModel):
     urls: List[str] = Field(..., description="List of resource URLs to read context from")
@@ -356,6 +365,38 @@ def api_find_resources(req: FindRequest):
             limit=req.limit, 
             score_threshold=req.score_threshold,
             filter=req.filter
+        )
+        
+        # safely convert to dict
+        if hasattr(results, "to_dict"):
+            res_data = results.to_dict()
+            if hasattr(results, "query_results") and results.query_results:
+                res_data["query_results"] = [
+                    {
+                        "query": results._query_to_dict(qr.query) if hasattr(results, "_query_to_dict") else str(qr.query),
+                        "matched_contexts": [results._context_to_dict(c) if hasattr(results, "_context_to_dict") else c.uri for c in qr.matched_contexts],
+                        "searched_directories": qr.searched_directories,
+                        "thinking_trace": qr.thinking_trace.to_dict() if hasattr(qr.thinking_trace, "to_dict") else {}
+                    }
+                    for qr in results.query_results
+                ]
+        else:
+            res_data = results
+            
+        return {"status": "success", "data": res_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/retrieval/recursive_search", summary="Recursive Search Resources")
+def api_recursive_search(req: RecursiveSearchRequest):
+    try:
+        results = recursive_search(
+            query=req.query, 
+            target_uri=req.target_uri, 
+            limit=req.limit, 
+            score_threshold=req.score_threshold,
+            filter=req.filter,
+            max_rounds=req.max_rounds
         )
         
         # safely convert to dict

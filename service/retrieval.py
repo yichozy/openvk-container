@@ -4,6 +4,7 @@ from openviking.message import Message
 from .client import OpenVK
 from openviking_cli.retrieve.types import FindResult, MatchedContext
 from openviking.storage.expr import FilterExpr
+import heapq
 
 
 def find_resources(
@@ -172,3 +173,106 @@ def read_resource(target: str, level: str = "L2") -> str:
     # client.close()
 
     return ret_obj
+
+
+def recursive_search(
+    query: str, 
+    target_uri: str = "", 
+    limit: int = 10, 
+    score_threshold: Optional[float] = None, 
+    filter: Optional[Union[Dict, FilterExpr]] = None,
+    max_rounds: int = 10
+) -> FindResult:
+    """Perform a recursive search propagating scores across directories.
+    
+    Args:
+        query: The semantic search query string.
+        target_uri: The restricted directory prefix scope to search within.
+        limit: Maximum number of resources to return.
+        score_threshold: Minimum final propagation score.
+        filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr`.
+        max_rounds: Maximum expansion rounds to prevent infinite loops.
+    """
+    client = OpenVK.get_client()
+    
+    # Priority queue: (negative_score, uri) to act as max-heap
+    dir_queue = []
+    # Using 1.0 as the root's base parent score.
+    heapq.heappush(dir_queue, (-1.0, target_uri))
+    
+    collected: List[MatchedContext] = []
+    
+    topk_unchanged_rounds = 0
+    last_topk_uris = []
+    
+    rounds = 0
+    threshold = score_threshold if score_threshold is not None else 0.0
+    
+    while dir_queue and rounds < max_rounds:
+        rounds += 1
+        neg_parent_score, current_uri = heapq.heappop(dir_queue)
+        parent_score = -neg_parent_score
+        
+        # Search children within current_uri
+        results = client.search(
+            query, 
+            target_uri=current_uri, 
+            limit=limit, 
+            score_threshold=None,  # Do not filter here, propagate scores first
+            filter=filter
+        )
+        
+        found_items = results.resources if hasattr(results, 'resources') and results.resources else []
+        
+        for r in found_items:
+            embedding_score = r.score
+            # Score propagation
+            final_score = 0.5 * embedding_score + 0.5 * parent_score
+            
+            if final_score > threshold:
+                r.score = final_score
+                collected.append(r)
+                
+                # Check if it continues recursion
+                is_leaf = True
+                try:
+                    stat_info = client.stat(r.uri)
+                    is_leaf = stat_info.get("is_leaf", False) if isinstance(stat_info, dict) else getattr(stat_info, "is_leaf", False)
+                except Exception:
+                    pass
+                    
+                if not is_leaf:
+                    # Priority is descending (max-heap behavior with negative values)
+                    heapq.heappush(dir_queue, (-final_score, r.uri))
+                    
+        # Convergence detection
+        collected.sort(key=lambda x: x.score, reverse=True)
+        current_topk_uris = [c.uri for c in collected[:limit]]
+        
+        if current_topk_uris == last_topk_uris and len(current_topk_uris) > 0:
+            topk_unchanged_rounds += 1
+        else:
+            topk_unchanged_rounds = 0
+            last_topk_uris = current_topk_uris
+            
+        if topk_unchanged_rounds >= 3:
+            break
+            
+    # Remove duplicates, keeping highest score (already sorted descending)
+    unique_collected = []
+    seen_uris = set()
+    for c in collected:
+        if c.uri not in seen_uris:
+            unique_collected.append(c)
+            seen_uris.add(c.uri)
+            
+    final_results = unique_collected[:limit]
+    
+    return FindResult(
+        resources=final_results,
+        memories=[],
+        skills=[],
+        query_plan=None,
+        query_results=None,
+        total=len(final_results)
+    )
