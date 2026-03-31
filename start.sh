@@ -1,2 +1,2 @@
 #!/bin/bash
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+OPENVIKING_CONFIG_FILE=./.openviking/ov.conf python -m uvicorn main:app --host 0.0.0.0 --port 1934
