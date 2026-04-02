@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import List, Union, Dict, Any, Optional
+import base64
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import FileResponse, Response
@@ -31,7 +32,8 @@ from service.retrieval import (
     search_resources,
     recursive_search,
     read_resources_progressively,
-    read_resource
+    read_resource,
+    read_resource_bytes
 )
 from service.tree import (
     get_tree,
@@ -67,7 +69,7 @@ class AddMessageRequest(BaseModel):
     role: str = Field(..., description="Role ('user' or 'assistant')")
     content: Optional[str] = None
     parts: Optional[List[Dict]] = None
-    
+
 
 class AddResourceURLRequest(BaseModel):
     url: str = Field(..., description="URL to add")
@@ -186,19 +188,19 @@ def api_add_resource_file(
         # Create a temp directory
         temp_dir = tempfile.mkdtemp()
         temp_file_path = os.path.join(temp_dir, file.filename)
-        
+
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
-        
+
         # Attempt to clean up
         try:
             os.remove(temp_file_path)
             os.rmdir(temp_dir)
         except Exception:
             pass
-            
+
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -226,19 +228,19 @@ def api_replace_resource_file(
         # Create a temp directory
         temp_dir = tempfile.mkdtemp()
         temp_file_path = os.path.join(temp_dir, file.filename)
-        
+
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         status = replace_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
-        
+
         # Attempt to clean up
         try:
             os.remove(temp_file_path)
             os.rmdir(temp_dir)
         except Exception:
             pass
-            
+
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -258,23 +260,23 @@ async def api_add_resource_bytes(
 ):
     try:
         body_bytes = await request.body()
-        
+
         # Create a temp directory
         temp_dir = tempfile.mkdtemp()
         temp_file_path = os.path.join(temp_dir, filename)
-        
+
         with open(temp_file_path, "wb") as buffer:
             buffer.write(body_bytes)
-            
+
         status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
-        
+
         # Attempt to clean up
         try:
             os.remove(temp_file_path)
             os.rmdir(temp_dir)
         except Exception:
             pass
-            
+
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -360,13 +362,13 @@ def api_glob_resources(req: GlobResourceRequest):
 def api_find_resources(req: FindRequest):
     try:
         results = find_resources(
-            query=req.query, 
-            target_uri=req.target_uri, 
-            limit=req.limit, 
+            query=req.query,
+            target_uri=req.target_uri,
+            limit=req.limit,
             score_threshold=req.score_threshold,
             filter=req.filter
         )
-        
+
         # safely convert to dict
         if hasattr(results, "to_dict"):
             res_data = results.to_dict()
@@ -382,7 +384,7 @@ def api_find_resources(req: FindRequest):
                 ]
         else:
             res_data = results
-            
+
         return {"status": "success", "data": res_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -391,14 +393,14 @@ def api_find_resources(req: FindRequest):
 def api_recursive_search(req: RecursiveSearchRequest):
     try:
         results = recursive_search(
-            query=req.query, 
-            target_uri=req.target_uri, 
-            limit=req.limit, 
+            query=req.query,
+            target_uri=req.target_uri,
+            limit=req.limit,
             score_threshold=req.score_threshold,
             filter=req.filter,
             max_rounds=req.max_rounds
         )
-        
+
         # safely convert to dict
         if hasattr(results, "to_dict"):
             res_data = results.to_dict()
@@ -414,7 +416,7 @@ def api_recursive_search(req: RecursiveSearchRequest):
                 ]
         else:
             res_data = results
-            
+
         return {"status": "success", "data": res_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -425,10 +427,10 @@ def api_season_aware_search(req: SearchRequest):
         # Reconstruct internal message objects
         if len(req.msgs) == 0:
             results = search_resources(
-                query=req.query, 
-                target_uri=req.target_uri, 
-                limit=req.limit, 
-                score_threshold=req.score_threshold, 
+                query=req.query,
+                target_uri=req.target_uri,
+                limit=req.limit,
+                score_threshold=req.score_threshold,
                 filter=req.filter
             )
         else:
@@ -439,14 +441,14 @@ def api_season_aware_search(req: SearchRequest):
                 else:
                     internal_msgs.append(Message.create_assistant(msg.content))
             results = season_aware_search(
-                query=req.query, 
-                msgs=internal_msgs, 
-                target_uri=req.target_uri, 
-                limit=req.limit, 
-                score_threshold=req.score_threshold, 
+                query=req.query,
+                msgs=internal_msgs,
+                target_uri=req.target_uri,
+                limit=req.limit,
+                score_threshold=req.score_threshold,
                 filter=req.filter
             )
-        
+
         # safely convert to dict
         if hasattr(results, "to_dict"):
             res_data = results.to_dict()
@@ -462,7 +464,7 @@ def api_season_aware_search(req: SearchRequest):
                 ]
         else:
             res_data = results
-            
+
         return {"status": "success", "data": res_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -480,6 +482,16 @@ def api_read_resource(target: str, level: str = "L2"):
     try:
         data = read_resource(target=target, level=level)
         return {"status": "success", "level": level, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/retrieval/read_binary", summary="Read binary resource (images, etc.) as base64")
+def api_read_resource_binary(target: str):
+    try:
+        raw = read_resource_bytes(target)
+        data = base64.b64encode(raw).decode("ascii")
+        return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -574,19 +586,19 @@ def api_export_ovpack(req: ExportOvpackRequest):
     try:
         fd, temp_path = tempfile.mkstemp(suffix=".ovpack")
         os.close(fd)
-        
+
         export_ovpack(req.uri, temp_path)
-        
+
         with open(temp_path, "rb") as f:
             file_bytes = f.read()
-            
+
         try:
             os.remove(temp_path)
         except Exception:
             pass
-        
+
         return Response(
-            content=file_bytes, 
+            content=file_bytes,
             media_type="application/octet-stream"
         )
     except Exception as e:
@@ -602,18 +614,18 @@ def api_import_ovpack(
     try:
         temp_dir = tempfile.mkdtemp()
         temp_file_path = os.path.join(temp_dir, file.filename)
-        
+
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         data = import_ovpack(temp_file_path, target, force, vectorize)
-        
+
         try:
             os.remove(temp_file_path)
             os.rmdir(temp_dir)
         except Exception:
             pass
-            
+
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

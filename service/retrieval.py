@@ -160,7 +160,7 @@ def read_resource(target: str, level: str = "L2") -> str:
     client = OpenVK.get_client()
 
     ret_obj = ""
-    
+
     if level == "L0":
         ret_obj = client.abstract(target)
     elif level == "L1":
@@ -173,6 +173,25 @@ def read_resource(target: str, level: str = "L2") -> str:
     # client.close()
 
     return ret_obj
+
+
+def read_resource_bytes(target: str) -> bytes:
+    """Read resource as raw bytes (for binary files like images).
+
+    Uses viking_fs.read_file_bytes() to avoid UTF-8 corruption
+    that occurs with the normal read() path.
+
+    Args:
+        target: Target URI
+
+    Returns:
+        Raw bytes of the file content
+    """
+    from openviking_cli.utils import run_async
+
+    client = OpenVK.get_client()
+    fs_service = client._async_client._client.service.fs
+    return run_async(fs_service.read_file_bytes(target, ctx=None))
 
 
 def recursive_search(
