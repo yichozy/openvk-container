@@ -143,10 +143,12 @@ class SearchRequest(BaseModel):
 class RecursiveSearchRequest(BaseModel):
     query: str = Field(..., description="Search query string")
     target_uri: str = Field("", description="Optional target URI context")
-    limit: int = Field(10, description="Limit on number of results")
+    topK: int = Field(3, description="TopK of each search round")
     score_threshold: Optional[float] = Field(None, description="Score threshold for filtering")
     filter: Optional[Dict] = Field(None, description="Optional filter dict")
-    max_rounds: int = Field(10, description="Maximum expansion rounds")
+    max_rounds: int = Field(3, description="Maximum expansion rounds")
+    context_type: Optional[str] = Field(None, description="Optional context type (MEMORY, RESOURCE, SKILL)")
+    max_relations: int = Field(3, description="Maximum number of relations to retain per resource")
 
 class ReadProgressivelyRequest(BaseModel):
     urls: List[str] = Field(..., description="List of resource URLs to read context from")
@@ -393,12 +395,14 @@ def api_find_resources(req: FindRequest):
 def api_recursive_search(req: RecursiveSearchRequest):
     try:
         results = recursive_search(
-            query=req.query,
-            target_uri=req.target_uri,
-            limit=req.limit,
+            query=req.query, 
+            target_uri=req.target_uri, 
+            topK=req.topK, 
             score_threshold=req.score_threshold,
             filter=req.filter,
-            max_rounds=req.max_rounds
+            max_rounds=req.max_rounds,
+            context_type=req.context_type,
+            max_relations=req.max_relations
         )
 
         # safely convert to dict
