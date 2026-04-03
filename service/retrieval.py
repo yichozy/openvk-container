@@ -1,3 +1,4 @@
+from litellm import PerplexityResponsesConfig
 from typing import Optional, Dict, Any, List, Union
 from openviking.message import TextPart
 from openviking.message import Message
@@ -221,127 +222,105 @@ def recursive_search(
     
     # Key Parameters
     SCORE_PROPAGATION_ALPHA = 0.5
-
-    # Step 1: Determine root directories by context_type
-    root_uris = []
-    if context_type == "MEMORY":
-        root_uris = ["viking://user/memories", "viking://agent/memories"]
-    elif context_type == "SKILL":
-        root_uris = ["viking://agent/skills"]
-    elif context_type == "RESOURCE":
-        root_uris = ["viking://resources"]
-    elif target_uri:
-        root_uris = [target_uri]
-    else:
-        root_uris = ["viking://resources"]
-
-    # Step 2: Global vector search to locate starting directories
-    initial_candidates = []
-    for r_uri in root_uris:
-        try:
-            res = client.search(
-                query,
-                target_uri=r_uri,
-                limit=topK,
-                score_threshold=None,
-                filter=filter
-            )
-            found = res.resources if hasattr(res, 'resources') and res.resources else []
-            initial_candidates.extend(found)
-        except Exception:
-            pass
-            
-    # Step 3: Merge starting points + Rerank scoring
-    initial_candidates.sort(key=lambda x: x.score, reverse=True)
-    starting_points = initial_candidates[:topK]
     
     dir_queue = []
-    starting_dirs = {}
-    for r in starting_points:
+    
+    if target_uri:
         is_leaf = True
         try:
-            stat_info = client.stat(r.uri)
+            stat_info = client.stat(target_uri)
             is_leaf = stat_info.get("is_leaf", False) if isinstance(stat_info, dict) else getattr(stat_info, "is_leaf", False)
         except Exception:
             pass
             
-        dir_uri = r.uri if not is_leaf else posixpath.dirname(r.uri)
-                
-        if dir_uri not in starting_dirs or starting_dirs[dir_uri] < r.score:
-            starting_dirs[dir_uri] = r.score
+        if not is_leaf:
+            heapq.heappush(dir_queue, (-1.0, target_uri))
+    else:
+        root_uris = []
+        if context_type == "MEMORY":
+            root_uris = ["viking://user/memories", "viking://agent/memories"]
+        elif context_type == "SKILL":
+            root_uris = ["viking://agent/skills"]
+        elif context_type == "RESOURCE":
+            root_uris = ["viking://resources"]
+        else:
+            root_uris = ["viking://resources"]
             
-    # Fallback to root_uris if no starting directories found
-    if not starting_dirs:
-        for ru in root_uris:
-            starting_dirs[ru] = 1.0
-            
-    for uri, score in starting_dirs.items():
-        heapq.heappush(dir_queue, (-score, uri))
-        
+        for r_uri in root_uris:
+            heapq.heappush(dir_queue, (-1.0, r_uri))
+
     collected: List[MatchedContext] = []
     topk_unchanged_rounds = 0
     last_topk_uris = []
     rounds = 0
     threshold = score_threshold if score_threshold is not None else 0.0
-    
-    # Step 4: Recursive search (priority queue)
-    while dir_queue and rounds < max_rounds:
-        rounds += 1
-        neg_parent_score, current_uri = heapq.heappop(dir_queue)
-        parent_score = -neg_parent_score
-        
+
+    if not dir_queue and target_uri:
         try:
             results = client.search(
                 query, 
-                target_uri=current_uri, 
+                target_uri=target_uri, 
                 limit=topK, 
-                score_threshold=None,  
+                score_threshold=score_threshold,  
                 filter=filter
             )
             found_items = results.resources if hasattr(results, 'resources') and results.resources else []
+            collected.extend(found_items)
         except Exception:
-            found_items = []
-        
-        for r in found_items:
-            embedding_score = r.score
+            pass
+    else:
+        while dir_queue and rounds < max_rounds:
+            rounds += 1
+            neg_parent_score, current_uri = heapq.heappop(dir_queue)
+            parent_score = -neg_parent_score
             
-            # Score propagation
-            final_score = SCORE_PROPAGATION_ALPHA * embedding_score + (1.0 - SCORE_PROPAGATION_ALPHA) * parent_score
-            
-            if final_score > threshold:
-                r.score = final_score
-                collected.append(r)
+            try:
+                results = client.search(
+                    query, 
+                    target_uri=current_uri, 
+                    limit=topK, 
+                    score_threshold=None,  
+                    filter=filter
+                )
+                found_items = results.resources if hasattr(results, 'resources') and results.resources else []
+            except Exception:
+                found_items = []
                 
-                is_leaf = True
-                try:
-                    stat_info = client.stat(r.uri)
-                    is_leaf = stat_info.get("is_leaf", False) if isinstance(stat_info, dict) else getattr(stat_info, "is_leaf", False)
-                except Exception:
-                    pass
-                    
-                if not is_leaf:  # Directory continues recursion
-                    heapq.heappush(dir_queue, (-final_score, r.uri))
-                    
-        # Convergence detection
-        collected.sort(key=lambda x: x.score, reverse=True)
-        deduped = []
-        seen = set()
-        for c in collected:
-            if c.uri not in seen:
-                deduped.append(c)
-                seen.add(c.uri)
+            for r in found_items:
+                embedding_score = r.score
                 
-        current_topk_uris = [c.uri for c in deduped[:topK]]
-        
-        if current_topk_uris == last_topk_uris and len(current_topk_uris) > 0:
-            topk_unchanged_rounds += 1
-        else:
-            topk_unchanged_rounds = 0
-            last_topk_uris = current_topk_uris
+                # Score propagation
+                final_score = SCORE_PROPAGATION_ALPHA * embedding_score + (1.0 - SCORE_PROPAGATION_ALPHA) * parent_score
+                
+                if final_score > threshold:
+                    r.score = final_score
+
+                    is_leaf = r.level == 2
+                    collected.append(r)
+
+                    if not is_leaf:  # Directory continues recursion
+                        heapq.heappush(dir_queue, (-final_score, r.uri))
+                        
+            # Convergence detection
+            collected.sort(key=lambda x: x.score, reverse=True)
+            deduped = []
+            seen = set()
+            for c in collected:
+                if c.uri not in seen:
+                    deduped.append(c)
+                    seen.add(c.uri)
+                    
+            current_topk_uris = [c.uri for c in deduped[:topK]]
             
-        if topk_unchanged_rounds >= max_rounds:
-            break
-            
+            if current_topk_uris == last_topk_uris and len(current_topk_uris) > 0:
+                topk_unchanged_rounds += 1
+            else:
+                topk_unchanged_rounds = 0
+                last_topk_uris = current_topk_uris
+                
+            if topk_unchanged_rounds >= 3:
+                break
+                
     # Step 5: Convert to MatchedContext
     unique_collected = []
     seen_uris = set()
@@ -350,7 +329,6 @@ def recursive_search(
             unique_collected.append(c)
             seen_uris.add(c.uri)
             
-    # final_results = unique_collected[:topK]
     final_results = unique_collected
     
     for r in final_results:

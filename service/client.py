@@ -7,8 +7,11 @@ class OpenVK:
     def get_client(cls):
         if cls._client is None:
             # Connect to remote services
-            cls._client = ov.OpenViking(path="./data/workspace")
-            cls._client.initialize()
+            try:
+                cls._client = ov.OpenViking(path="./data/workspace")
+                cls._client.initialize()
+            except Exception as e:
+                print(f"Error connecting to OpenViking: {e}")
 
         return cls._client
 
