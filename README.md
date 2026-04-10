@@ -167,24 +167,6 @@ curl -G 'http://localhost:1934/retrieval/read' \
 }
 ```
 
-**Recursive Navigation Search (`/retrieval/recursive_search`)**
-
-The `recursive_search` endpoint performs a contextual search capable of propagating scores recursively through directories. It takes parameters such as `topK` (number of top results) and `max_relations`.
-
-```bash
-curl -X 'POST' \
-  'http://localhost:1934/retrieval/recursive_search' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "query": "system architecture",
-  "topK": 5,
-  "max_rounds": 3,
-  "max_relations": 3,
-  "context_type": "RESOURCE"
-}'
-```
-
 ### File Uploads Example
 
 There are two primary ways to upload a document to your AI's context via the client API. Optional parameters such as `replace`, `wait`, `build_index`, and `instruction` can also be provided.
