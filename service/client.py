@@ -1,19 +1,26 @@
 import openviking as ov
 
 class OpenVK:
-    _client = None
+    
+    client_list = []
     
     @classmethod
-    def get_client(cls):
-        if cls._client is None:
-            # Connect to remote services
-            try:
-                cls._client = ov.OpenViking(path="./data/workspace")
-                cls._client.initialize()
-            except Exception as e:
+    def get_client(cls, tenant_id="workspace"):
+        for client in cls.client_list:
+            if client.tenant_id == tenant_id:
+                return client
+
+        # Connect to remote services
+        try:
+            client = ov.OpenViking(path=f"./data/{tenant_id}",)
+            client.initialize()
+            cls.client_list.append(client)
+            return client
+        except Exception as e:
                 print(f"Error connecting to OpenViking: {e}")
 
-        return cls._client
+        return None
+
 
     @classmethod
     def close_client(cls):

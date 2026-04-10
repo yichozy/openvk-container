@@ -7,7 +7,7 @@ import requests
 import shutil
 from openviking_cli.utils import run_async
 
-def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True, timeout: Optional[float] = None, build_index: bool = True) -> Dict[str, Any]:
+def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", replace: bool = False, instruction: str = "", wait: bool = True, timeout: Optional[float] = None, build_index: bool = True, tenant_id: str = "workspace") -> Dict[str, Any]:
     """Add resource to OpenViking (resources scope only)
 
     Args:
@@ -18,8 +18,9 @@ def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: s
         replace: Whether to remove the old resource before adding
         instruction: Instruction for adding
         wait: Whether to wait for async operations to complete
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
     
     if to and parent:
         raise ValueError("Cannot specify both 'to' and 'parent' at the same time.")
@@ -101,7 +102,7 @@ def add_resource(path_or_url: str, to: str = None, parent: str = None, reason: s
 
     
 
-def replace_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", instruction: str = "", wait: bool = True, timeout: Optional[float] = None, build_index: bool = True) -> Dict[str, Any]:
+def replace_resource(path_or_url: str, to: str = None, parent: str = None, reason: str = "", instruction: str = "", wait: bool = True, timeout: Optional[float] = None, build_index: bool = True, tenant_id: str = "workspace") -> Dict[str, Any]:
     """Replace resource in OpenViking
 
     Args:
@@ -113,18 +114,20 @@ def replace_resource(path_or_url: str, to: str = None, parent: str = None, reaso
         wait: Whether to wait for async operations to complete
         timeout: Wait timeout in seconds
         build_index: Whether to build vector index immediately
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    return add_resource(path_or_url, to=to, parent=parent, reason=reason, replace=True, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
+    return add_resource(path_or_url, to=to, parent=parent, reason=reason, replace=True, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index, tenant_id=tenant_id)
 
-def list_resources(target: str, simple: bool = False, recursive: bool = False) -> List[Any]:
+def list_resources(target: str, simple: bool = False, recursive: bool = False, tenant_id: str = "workspace") -> List[Any]:
     """List resources in OpenViking (resources scope only)
 
     Args:
         target: Target URI
         simple: If True, returns a list of path strings instead of detailed objects.
         recursive: If True, recursively lists all inner paths and files.
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
     
     resources = client.ls(target, simple=simple, recursive=recursive)
 
@@ -134,72 +137,141 @@ def list_resources(target: str, simple: bool = False, recursive: bool = False) -
 
 
 
-def get_resource_relations(target: str) -> List[Any]:
-    """Get relations for a resource"""
-    client = OpenVK.get_client()
+def get_resource_relations(target: str, tenant_id: str = "workspace") -> List[Any]:
+    """Get relations for a resource
+
+    Args:
+        target: Target resource URI
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     relations = client.relations(target)
     # client.close()
     return relations
 
-def move_resource(src: str, dest: str) -> None:
-    """Move resources from src to dest"""
-    client = OpenVK.get_client()
+def move_resource(src: str, dest: str, tenant_id: str = "workspace") -> None:
+    """Move resources from src to dest
+
+    Args:
+        src: Source URI
+        dest: Destination URI
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     client.mv(src, dest)
     # client.close()
 
-def delete_resource(target: str, recursive: bool = False) -> None:
-    """Delete resources"""
-    client = OpenVK.get_client()
+def delete_resource(target: str, recursive: bool = False, tenant_id: str = "workspace") -> None:
+    """Delete resources
+
+    Args:
+        target: Target resource URI
+        recursive: Whether to delete recursively
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     client.rm(target, recursive=recursive)
     # client.close()
 
-def link_resources(src: str, dest: Union[str, List[str]], reason: str = "") -> None:
-    """Create Links between resources"""
-    client = OpenVK.get_client()
+def link_resources(src: str, dest: Union[str, List[str]], reason: str = "", tenant_id: str = "workspace") -> None:
+    """Create Links between resources
+
+    Args:
+        src: Source URI
+        dest: Destination URI(s)
+        reason: Reason for linking
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     client.link(src, dest, reason=reason)
     # client.close()
 
-def get_relations(target: str) -> List[Any]:
-    """Get relations for a resource"""
-    client = OpenVK.get_client()
+def get_relations(target: str, tenant_id: str = "workspace") -> List[Any]:
+    """Get relations for a resource
+
+    Args:
+        target: Target resource URI
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     relations = client.relations(target)
     # client.close()
     return relations
 
-def unlink_resources(src: str, dest: str) -> None:
-    """Remove Links between resources"""
-    client = OpenVK.get_client()
+def unlink_resources(src: str, dest: str, tenant_id: str = "workspace") -> None:
+    """Remove Links between resources
+
+    Args:
+        src: Source URI
+        dest: Destination URI
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     client.unlink(src, dest)
     # client.close()
 
-def export_ovpack(target: str, to: str) -> str:
-    """Export .ovpack file"""
-    client = OpenVK.get_client()
+def export_ovpack(target: str, to: str, tenant_id: str = "workspace") -> str:
+    """Export .ovpack file
+
+    Args:
+        target: Target URI to export
+        to: Output file path
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     return client.export_ovpack(target, to)
 
-def import_ovpack(file_path: str, target: str, force: bool = False, vectorize: bool = True) -> str:
-    """Import .ovpack file"""
-    client = OpenVK.get_client()
+def import_ovpack(file_path: str, target: str, force: bool = False, vectorize: bool = True, tenant_id: str = "workspace") -> str:
+    """Import .ovpack file
+
+    Args:
+        file_path: Path to .ovpack file
+        target: Target URI to import to
+        force: Whether to force overwrite
+        vectorize: Whether to run vectorization
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     return client.import_ovpack(file_path, target, force, vectorize)
 
-def stat(uri: str) -> Dict[str, Any]:
-    """Get resource status"""
-    client = OpenVK.get_client()
+def stat(uri: str, tenant_id: str = "workspace") -> Dict[str, Any]:
+    """Get resource status
+
+    Args:
+        uri: Resource URI
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     return client.stat(uri)
 
-def mkdir(uri: str) -> None:
-    """Create directory"""
-    client = OpenVK.get_client()
+def mkdir(uri: str, tenant_id: str = "workspace") -> None:
+    """Create directory
+
+    Args:
+        uri: Directory URI
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     client.mkdir(uri)
 
-def wait_processed(timeout: float = None) -> Dict[str, Any]:
-    """Wait for all async operations to complete"""
-    client = OpenVK.get_client()
+def wait_processed(timeout: float = None, tenant_id: str = "workspace") -> Dict[str, Any]:
+    """Wait for all async operations to complete
+
+    Args:
+        timeout: Timeout in seconds
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     return client.wait_processed(timeout)
 
-def build_index(resource_uris: Union[str, List[str]], **kwargs) -> Dict[str, Any]:
-    """Manually trigger index building."""
-    client = OpenVK.get_client()
+def build_index(resource_uris: Union[str, List[str]], tenant_id: str = "workspace", **kwargs) -> Dict[str, Any]:
+    """Manually trigger index building.
+
+    Args:
+        resource_uris: Resource URIs to build index for
+        tenant_id: Tenant ID for multi-tenancy support
+    """
+    client = OpenVK.get_client(tenant_id=tenant_id)
     if hasattr(client, "build_index"):
         return client.build_index(resource_uris, **kwargs)
     else:

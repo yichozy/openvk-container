@@ -9,11 +9,12 @@ import heapq
 
 
 def find_resources(
-    query: str,  
-    target_uri: str = "", 
-    limit: int = 10, 
+    query: str,
+    target_uri: str = "",
+    limit: int = 10,
     score_threshold: Optional[float] = None,
-    filter: Optional[Union[Dict, FilterExpr]] = None
+    filter: Optional[Union[Dict, FilterExpr]] = None,
+    tenant_id: str = "workspace"
 ) -> FindResult:
     """Find resources using pure vector similarity without session context.
 
@@ -23,8 +24,9 @@ def find_resources(
         limit: Maximum number of resources to return.
         score_threshold: Minimum vector similarity (0.0 to 1.0).
         filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr` directly executed by the DB.
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
 
     results = client.find(
         query,
@@ -37,43 +39,46 @@ def find_resources(
     return results
 
 def search_resources(
-    query: str, 
-    target_uri: str = "", 
-    limit: int = 10, 
-    score_threshold: Optional[float] = None, 
-    filter: Optional[Union[Dict, FilterExpr]] = None
+    query: str,
+    target_uri: str = "",
+    limit: int = 10,
+    score_threshold: Optional[float] = None,
+    filter: Optional[Union[Dict, FilterExpr]] = None,
+    tenant_id: str = "workspace"
 ) -> FindResult:
     """Search resources with standard context.
 
     Args:
         query: The semantic search query string.
         target_uri: The restricted directory prefix scope to search within.
+        tenant_id: Tenant ID for multi-tenancy support
         limit: Maximum number of resources to return.
         score_threshold: Minimum vector similarity (0.0 to 1.0).
         filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr` natively executed by the DB engine.
     """
-    client = OpenVK.get_client()
-    
+    client = OpenVK.get_client(tenant_id=tenant_id)
+
     results = client.search(
-        query, 
-        target_uri=target_uri, 
-        limit=limit, 
-        score_threshold=score_threshold, 
+        query,
+        target_uri=target_uri,
+        limit=limit,
+        score_threshold=score_threshold,
         filter=filter
     )
 
     return results
 
 def season_aware_search(
-    query: str, 
-    msgs: List[Message], 
-    target_uri: str = "", 
-    limit: int = 10, 
-    score_threshold: Optional[float] = None, 
-    filter: Optional[Union[Dict, FilterExpr]] = None
+    query: str,
+    msgs: List[Message],
+    target_uri: str = "",
+    limit: int = 10,
+    score_threshold: Optional[float] = None,
+    filter: Optional[Union[Dict, FilterExpr]] = None,
+    tenant_id: str = "workspace"
 ) -> FindResult:
     """Perform a season-aware search heavily integrating conversation memory/messages as context.
-    
+
     Args:
         query: The primary search query.
         msgs: List of previous conversation messages representing the session thread.
@@ -81,8 +86,9 @@ def season_aware_search(
         limit: Maximum number of resources to return.
         score_threshold: Minimum vector similarity (0.0 to 1.0).
         filter: An advanced JSON AST raw dictionary or an `openviking.storage.expr.FilterExpr` natively executed by the DB engine.
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
     
     session = client.session()
     for msg in msgs:
@@ -100,16 +106,17 @@ def season_aware_search(
     return results
 
 
-def read_resources_progressively(urls: List[str]) -> List[Dict[str, Any]]:
+def read_resources_progressively(urls: List[str], tenant_id: str = "workspace") -> List[Dict[str, Any]]:
     """Read resource from OpenViking (resources scope only)
 
     Args:
         urls: List of resource URLs
-        
+        tenant_id: Tenant ID for multi-tenancy support
+
     Returns:
         A list of dictionaries containing 'url' and the aggregated 'context'
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
     
     resource_docs = []
     
@@ -152,13 +159,14 @@ def read_resources_progressively(urls: List[str]) -> List[Dict[str, Any]]:
     return resource_docs
 
 
-def read_resource(target: str, level: str = "L2") -> str:
+def read_resource(target: str, level: str = "L2", tenant_id: str = "workspace") -> str:
     """Read resource from OpenViking (resources scope only)
 
     Args:
         target: Target URI
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
 
     ret_obj = ""
 
@@ -176,7 +184,7 @@ def read_resource(target: str, level: str = "L2") -> str:
     return ret_obj
 
 
-def read_resource_bytes(target: str) -> bytes:
+def read_resource_bytes(target: str, tenant_id: str = "workspace") -> bytes:
     """Read resource as raw bytes (for binary files like images).
 
     Uses viking_fs.read_file_bytes() to avoid UTF-8 corruption
@@ -184,29 +192,31 @@ def read_resource_bytes(target: str) -> bytes:
 
     Args:
         target: Target URI
+        tenant_id: Tenant ID for multi-tenancy support
 
     Returns:
         Raw bytes of the file content
     """
     from openviking_cli.utils import run_async
 
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
     fs_service = client._async_client._client.service.fs
     return run_async(fs_service.read_file_bytes(target, ctx=None))
 
 
 def recursive_search(
-    query: str, 
-    target_uri: str = "", 
-    topK: int = 3, 
-    score_threshold: Optional[float] = None, 
+    query: str,
+    target_uri: str = "",
+    topK: int = 3,
+    score_threshold: Optional[float] = None,
     filter: Optional[Union[Dict, FilterExpr]] = None,
     max_rounds: int = 3,
     context_type: Optional[str] = None,
-    max_relations: int = 3
+    max_relations: int = 3,
+    tenant_id: str = "workspace"
 ) -> FindResult:
     """Perform a recursive search propagating scores across directories.
-    
+
     Args:
         query: The semantic search query string.
         target_uri: The restricted directory prefix scope to search within.
@@ -216,8 +226,9 @@ def recursive_search(
         max_rounds: Maximum expansion rounds to prevent infinite loops.
         context_type: Type of context for mapping root directories (MEMORY, RESOURCE, SKILL).
         max_relations: Maximum number of relations to retain per resource.
+        tenant_id: Tenant ID for multi-tenancy support
     """
-    client = OpenVK.get_client()
+    client = OpenVK.get_client(tenant_id=tenant_id)
     import posixpath
     
     # Key Parameters

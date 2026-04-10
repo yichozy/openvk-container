@@ -63,6 +63,54 @@ The container includes a built-in Client REST API powered by FastAPI. This API a
 - **Skills (`/skills/*`):** Register new tools and AI skills dynamically.
 - **System (`/system/*`):** Check container health status and internal component metrics.
 
+### Multi-Tenancy Support
+
+The API now supports **multi-tenancy**, allowing you to isolate data and operations for different tenants, workspaces, or users. Each tenant maintains its own separate data directory and client instance.
+
+**How it works:**
+
+- Every API endpoint accepts an optional `tenant_id` parameter (default: `"workspace"`)
+- Each tenant's data is stored in a separate directory: `./data/{tenant_id}/`
+- Tenant client instances are cached and reused for efficiency
+- You can manage completely isolated knowledge bases within a single container
+
+**Usage Examples:**
+
+```bash
+# Using query parameters (GET requests)
+curl -G 'http://localhost:1934/resources/list' \
+  --data-urlencode 'target=viking://' \
+  --data-urlencode 'tenant_id=myapp'
+
+# Using form data (POST requests with file uploads)
+curl -X 'POST' \
+  'http://localhost:1934/resources/add_file' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@document.pdf' \
+  -F 'parent=viking://resources/' \
+  -F 'tenant_id=user123'
+
+# Using JSON body (POST requests)
+curl -X 'POST' \
+  'http://localhost:1934/retrieval/search?tenant_id=analytics' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "data pipeline architecture",
+    "limit": 5
+  }'
+```
+
+**Common Use Cases:**
+
+- **SaaS Applications:** Isolate data per customer/organization
+- **Multi-User Systems:** Separate knowledge bases for different users
+- **Development Environments:** Use different tenants for dev/staging/prod
+- **A/B Testing:** Maintain separate datasets for experimentation
+
+**Note:** If no `tenant_id` is specified, the API defaults to using `"workspace"`.
+
 ### Retrieval Example
 
 **Advanced Metadata Filtering (`/retrieval/find` and `/retrieval/search`)**
@@ -155,7 +203,8 @@ curl -X 'POST' \
   -F 'parent=viking://resources/docs/' \
   -F 'reason=Adding new project specification' \
   -F 'replace=true' \
-  -F 'wait=true'
+  -F 'wait=true' \
+  -F 'tenant_id=myapp'
 ```
 
 Using `to` (specifying exact filename):
@@ -166,7 +215,8 @@ curl -X 'POST' \
   -H 'Content-Type: multipart/form-data' \
   -F 'file=@/path/to/your/document.pdf' \
   -F 'to=viking://resources/docs/my_spec.pdf' \
-  -F 'reason=Adding new project specification'
+  -F 'reason=Adding new project specification' \
+  -F 'tenant_id=myapp'
 ```
 
 **2. Using Raw Byte Streams (`add_bytes`)**
@@ -176,7 +226,7 @@ This bypasses `multipart/form-data` entirely and consumes the raw request body p
 Using `parent` (filename provided via query parameters):
 ```bash
 curl -X 'POST' \
-  'http://localhost:1934/resources/add_bytes?filename=document.pdf&parent=viking://resources/docs/&reason=Uploading%20spec' \
+  'http://localhost:1934/resources/add_bytes?filename=document.pdf&parent=viking://resources/docs/&reason=Uploading%20spec&tenant_id=myapp' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/octet-stream' \
   --data-binary '@/path/to/your/document.pdf'

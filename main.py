@@ -167,9 +167,9 @@ class ReadProgressivelyResponse(BaseModel):
 # ==========================================
 
 @app.post("/resources/add_url", summary="Add a Resource via URL")
-def api_add_resource_url(req: AddResourceURLRequest):
+def api_add_resource_url(req: AddResourceURLRequest, tenant_id: str = "workspace"):
     try:
-        status = add_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, replace=req.replace, instruction=req.instruction, wait=req.wait, timeout=req.timeout, build_index=req.build_index)
+        status = add_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, replace=req.replace, instruction=req.instruction, wait=req.wait, timeout=req.timeout, build_index=req.build_index, tenant_id=tenant_id)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -184,7 +184,8 @@ def api_add_resource_file(
     instruction: str = Form("", description="Instruction for processing the resource"),
     wait: bool = Form(True, description="Whether to wait for async operations to complete"),
     timeout: Optional[float] = Form(None, description="Wait timeout in seconds"),
-    build_index: bool = Form(True, description="Whether to build vector index immediately")
+    build_index: bool = Form(True, description="Whether to build vector index immediately"),
+    tenant_id: str = Form("workspace", description="Tenant ID for multi-tenancy support")
 ):
     try:
         # Create a temp directory
@@ -194,7 +195,7 @@ def api_add_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
+        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index, tenant_id=tenant_id)
 
         # Attempt to clean up
         try:
@@ -208,9 +209,9 @@ def api_add_resource_file(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/replace_url", summary="Replace a Resource via URL")
-def api_replace_resource_url(req: ReplaceResourceURLRequest):
+def api_replace_resource_url(req: ReplaceResourceURLRequest, tenant_id: str = "workspace"):
     try:
-        status = replace_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, instruction=req.instruction, wait=req.wait, timeout=req.timeout, build_index=req.build_index)
+        status = replace_resource(path_or_url=req.url, to=req.to, parent=req.parent, reason=req.reason, instruction=req.instruction, wait=req.wait, timeout=req.timeout, build_index=req.build_index, tenant_id=tenant_id)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -224,7 +225,8 @@ def api_replace_resource_file(
     instruction: str = Form("", description="Instruction for replacing the resource"),
     wait: bool = Form(True, description="Whether to wait for async operations to complete"),
     timeout: Optional[float] = Form(None, description="Wait timeout in seconds"),
-    build_index: bool = Form(True, description="Whether to build vector index immediately")
+    build_index: bool = Form(True, description="Whether to build vector index immediately"),
+    tenant_id: str = Form("workspace", description="Tenant ID for multi-tenancy support")
 ):
     try:
         # Create a temp directory
@@ -234,7 +236,7 @@ def api_replace_resource_file(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        status = replace_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
+        status = replace_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index, tenant_id=tenant_id)
 
         # Attempt to clean up
         try:
@@ -258,7 +260,8 @@ async def api_add_resource_bytes(
     instruction: str = "",
     wait: bool = True,
     timeout: Optional[float] = None,
-    build_index: bool = True
+    build_index: bool = True,
+    tenant_id: str = Form("workspace", description="Tenant ID for multi-tenancy support")
 ):
     try:
         body_bytes = await request.body()
@@ -270,7 +273,7 @@ async def api_add_resource_bytes(
         with open(temp_file_path, "wb") as buffer:
             buffer.write(body_bytes)
 
-        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index)
+        status = add_resource(path_or_url=temp_file_path, to=to, parent=parent, reason=reason, replace=replace, instruction=instruction, wait=wait, timeout=timeout, build_index=build_index, tenant_id=tenant_id)
 
         # Attempt to clean up
         try:
@@ -284,73 +287,73 @@ async def api_add_resource_bytes(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/resources/list", summary="List Resources")
-def api_list_resources(target: str, simple: bool = False, recursive: bool = False):
+def api_list_resources(target: str, simple: bool = False, recursive: bool = False, tenant_id: str = "workspace"):
     try:
-        resources = list_resources(target, simple=simple, recursive=recursive)
+        resources = list_resources(target, simple=simple, recursive=recursive, tenant_id=tenant_id)
         return {"status": "success", "data": resources}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/resources/relations", summary="Get Resource Relations")
-def api_get_relations(target: str):
+def api_get_relations(target: str, tenant_id: str = "workspace"):
     try:
-        relations = get_resource_relations(target)
+        relations = get_resource_relations(target, tenant_id=tenant_id)
         return {"status": "success", "data": relations}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/move", summary="Move a Resource")
-def api_move_resource(req: MoveResourceRequest):
+def api_move_resource(req: MoveResourceRequest, tenant_id: str = "workspace"):
     try:
-        move_resource(src=req.src, dest=req.dest)
+        move_resource(src=req.src, dest=req.dest, tenant_id=tenant_id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/resources/delete", summary="Delete a Resource")
-def api_delete_resource(req: DeleteResourceRequest):
+def api_delete_resource(req: DeleteResourceRequest, tenant_id: str = "workspace"):
     try:
-        delete_resource(target=req.target, recursive=req.recursive)
+        delete_resource(target=req.target, recursive=req.recursive, tenant_id=tenant_id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/link", summary="Link Resources")
-def api_link_resources(req: LinkResourceRequest):
+def api_link_resources(req: LinkResourceRequest, tenant_id: str = "workspace"):
     try:
-        link_resources(src=req.src, dest=req.dest, reason=req.reason)
+        link_resources(src=req.src, dest=req.dest, reason=req.reason, tenant_id=tenant_id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/unlink", summary="Unlink Resources")
-def api_unlink_resources(req: UnlinkResourceRequest):
+def api_unlink_resources(req: UnlinkResourceRequest, tenant_id: str = "workspace"):
     try:
-        unlink_resources(src=req.src, dest=req.dest)
+        unlink_resources(src=req.src, dest=req.dest, tenant_id=tenant_id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/resources/tree", summary="Get Resource Tree")
-def api_get_tree(target: str):
+def api_get_tree(target: str, tenant_id: str = "workspace"):
     try:
-        tree_data = get_tree(target)
+        tree_data = get_tree(target, tenant_id=tenant_id)
         return {"status": "success", "data": tree_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/grep", summary="Grep in Resources")
-def api_grep_resources(req: GrepResourceRequest):
+def api_grep_resources(req: GrepResourceRequest, tenant_id: str = "workspace"):
     try:
-        results = grep_resources(uri=req.uri, pattern=req.pattern, case_insensitive=req.case_insensitive)
+        results = grep_resources(uri=req.uri, pattern=req.pattern, case_insensitive=req.case_insensitive, tenant_id=tenant_id)
         return {"status": "success", "data": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/glob", summary="Glob Match Resources")
-def api_glob_resources(req: GlobResourceRequest):
+def api_glob_resources(req: GlobResourceRequest, tenant_id: str = "workspace"):
     try:
-        results = glob_resources(pattern=req.pattern, uri=req.uri)
+        results = glob_resources(pattern=req.pattern, uri=req.uri, tenant_id=tenant_id)
         return {"status": "success", "data": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -361,14 +364,15 @@ def api_glob_resources(req: GlobResourceRequest):
 # ==========================================
 
 @app.post("/retrieval/find", summary="Find Resources")
-def api_find_resources(req: FindRequest):
+def api_find_resources(req: FindRequest, tenant_id: str = "workspace"):
     try:
         results = find_resources(
             query=req.query,
             target_uri=req.target_uri,
             limit=req.limit,
             score_threshold=req.score_threshold,
-            filter=req.filter
+            filter=req.filter,
+            tenant_id=tenant_id
         )
 
         # safely convert to dict
@@ -392,17 +396,18 @@ def api_find_resources(req: FindRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/retrieval/recursive_search", summary="Recursive Search Resources")
-def api_recursive_search(req: RecursiveSearchRequest):
+def api_recursive_search(req: RecursiveSearchRequest, tenant_id: str = "workspace"):
     try:
         results = recursive_search(
-            query=req.query, 
-            target_uri=req.target_uri, 
-            topK=req.topK, 
+            query=req.query,
+            target_uri=req.target_uri,
+            topK=req.topK,
             score_threshold=req.score_threshold,
             filter=req.filter,
             max_rounds=req.max_rounds,
             context_type=req.context_type,
-            max_relations=req.max_relations
+            max_relations=req.max_relations,
+            tenant_id=tenant_id
         )
 
         # safely convert to dict
@@ -426,7 +431,7 @@ def api_recursive_search(req: RecursiveSearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/retrieval/search", summary="Season-Aware Search")
-def api_season_aware_search(req: SearchRequest):
+def api_season_aware_search(req: SearchRequest, tenant_id: str = "workspace"):
     try:
         # Reconstruct internal message objects
         if len(req.msgs) == 0:
@@ -435,7 +440,8 @@ def api_season_aware_search(req: SearchRequest):
                 target_uri=req.target_uri,
                 limit=req.limit,
                 score_threshold=req.score_threshold,
-                filter=req.filter
+                filter=req.filter,
+                tenant_id=tenant_id
             )
         else:
             internal_msgs = []
@@ -450,7 +456,8 @@ def api_season_aware_search(req: SearchRequest):
                 target_uri=req.target_uri,
                 limit=req.limit,
                 score_threshold=req.score_threshold,
-                filter=req.filter
+                filter=req.filter,
+                tenant_id=tenant_id
             )
 
         # safely convert to dict
@@ -474,26 +481,26 @@ def api_season_aware_search(req: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/retrieval/read_progressively", summary="Read Resources Progressively", response_model=ReadProgressivelyResponse)
-def api_read_progressively(req: ReadProgressivelyRequest):
+def api_read_progressively(req: ReadProgressivelyRequest, tenant_id: str = "workspace"):
     try:
-        result = read_resources_progressively(urls=req.urls)
+        result = read_resources_progressively(urls=req.urls, tenant_id=tenant_id)
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/retrieval/read", summary="Read a Specific Resource Level")
-def api_read_resource(target: str, level: str = "L2"):
+def api_read_resource(target: str, level: str = "L2", tenant_id: str = "workspace"):
     try:
-        data = read_resource(target=target, level=level)
+        data = read_resource(target=target, level=level, tenant_id=tenant_id)
         return {"status": "success", "level": level, "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/retrieval/read_binary", summary="Read binary resource (images, etc.) as base64")
-def api_read_resource_binary(target: str):
+def api_read_resource_binary(target: str, tenant_id: str = "workspace"):
     try:
-        raw = read_resource_bytes(target)
+        raw = read_resource_bytes(target, tenant_id=tenant_id)
         data = base64.b64encode(raw).decode("ascii")
         return {"status": "success", "data": data}
     except Exception as e:
@@ -503,17 +510,17 @@ def api_read_resource_binary(target: str):
 # Routes: System
 # ==========================================
 @app.get("/system/status", summary="Get System Status")
-def api_get_status():
+def api_get_status(tenant_id: str = "workspace"):
     try:
-        status = get_status()
+        status = get_status(tenant_id=tenant_id)
         return {"status": "success", "data": status}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/system/health", summary="Quick Health Check")
-def api_is_healthy():
+def api_is_healthy(tenant_id: str = "workspace"):
     try:
-        healthy = is_healthy()
+        healthy = is_healthy(tenant_id=tenant_id)
         return {"status": "success", "data": healthy}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -522,51 +529,51 @@ def api_is_healthy():
 # Routes: Sessions
 # ==========================================
 @app.post("/sessions/create", summary="Create Session")
-def api_create_session():
+def api_create_session(tenant_id: str = "workspace"):
     try:
-        data = create_session()
+        data = create_session(tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sessions/list", summary="List Sessions")
-def api_list_sessions():
+def api_list_sessions(tenant_id: str = "workspace"):
     try:
-        data = list_sessions()
+        data = list_sessions(tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sessions/{session_id}", summary="Get Session")
-def api_get_session(session_id: str):
-    if not session_exists(session_id):
+def api_get_session(session_id: str, tenant_id: str = "workspace"):
+    if not session_exists(session_id, tenant_id=tenant_id):
         raise HTTPException(status_code=404, detail="Session not found")
     try:
-        data = get_session(session_id)
+        data = get_session(session_id, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/sessions/{session_id}", summary="Delete Session")
-def api_delete_session(session_id: str):
+def api_delete_session(session_id: str, tenant_id: str = "workspace"):
     try:
-        delete_session(session_id)
+        delete_session(session_id, tenant_id=tenant_id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/sessions/{session_id}/message", summary="Add Message")
-def api_add_message(session_id: str, req: AddMessageRequest):
+def api_add_message(session_id: str, req: AddMessageRequest, tenant_id: str = "workspace"):
     try:
-        data = add_message(session_id, req.role, content=req.content, parts=req.parts)
+        data = add_message(session_id, req.role, content=req.content, parts=req.parts, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/sessions/{session_id}/commit", summary="Commit Session")
-def api_commit_session(session_id: str):
+def api_commit_session(session_id: str, tenant_id: str = "workspace"):
     try:
-        data = commit_session(session_id)
+        data = commit_session(session_id, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -575,9 +582,9 @@ def api_commit_session(session_id: str):
 # Routes: Skills
 # ==========================================
 @app.post("/skills/add", summary="Add Skill")
-def api_add_skill(req: Dict[str, Any]):
+def api_add_skill(req: Dict[str, Any], tenant_id: str = "workspace"):
     try:
-        data = add_skill(req)
+        data = add_skill(req, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -586,12 +593,12 @@ def api_add_skill(req: Dict[str, Any]):
 # Extended Routes: Resources (Sync / IO)
 # ==========================================
 @app.post("/resources/export_ovpack", summary="Export OVPack")
-def api_export_ovpack(req: ExportOvpackRequest):
+def api_export_ovpack(req: ExportOvpackRequest, tenant_id: str = "workspace"):
     try:
         fd, temp_path = tempfile.mkstemp(suffix=".ovpack")
         os.close(fd)
 
-        export_ovpack(req.uri, temp_path)
+        export_ovpack(req.uri, temp_path, tenant_id=tenant_id)
 
         with open(temp_path, "rb") as f:
             file_bytes = f.read()
@@ -613,7 +620,8 @@ def api_import_ovpack(
     file: UploadFile = File(..., description="Uploaded .ovpack file to import"),
     target: str = Form(..., description="Target URI to unpack to"),
     force: bool = Form(False, description="Force overwrite"),
-    vectorize: bool = Form(True, description="Run vectorization on unpacking")
+    vectorize: bool = Form(True, description="Run vectorization on unpacking"),
+    tenant_id: str = Form("workspace", description="Tenant ID for multi-tenancy support")
 ):
     try:
         temp_dir = tempfile.mkdtemp()
@@ -622,7 +630,7 @@ def api_import_ovpack(
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        data = import_ovpack(temp_file_path, target, force, vectorize)
+        data = import_ovpack(temp_file_path, target, force, vectorize, tenant_id=tenant_id)
 
         try:
             os.remove(temp_file_path)
@@ -635,34 +643,34 @@ def api_import_ovpack(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/mkdir", summary="Make Directory")
-def api_mkdir(req: MkdirRequest):
+def api_mkdir(req: MkdirRequest, tenant_id: str = "workspace"):
     try:
-        mkdir(req.uri)
+        mkdir(req.uri, tenant_id=tenant_id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/resources/stat", summary="Stat Resource")
-def api_stat(uri: str):
+def api_stat(uri: str, tenant_id: str = "workspace"):
     try:
-        data = stat(uri)
+        data = stat(uri, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/resources/wait_processed", summary="Wait Operations Processed")
-def api_wait_processed(timeout: float = None):
+def api_wait_processed(timeout: float = None, tenant_id: str = "workspace"):
     try:
-        data = wait_processed(timeout)
+        data = wait_processed(timeout, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resources/build_index", summary="Trigger Build Index")
-def api_build_index(req: BuildIndexRequest):
+def api_build_index(req: BuildIndexRequest, tenant_id: str = "workspace"):
     try:
-        data = build_index(resource_uris=req.resource_uris)
+        data = build_index(resource_uris=req.resource_uris, tenant_id=tenant_id)
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
