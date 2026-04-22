@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yichozy/hopebox/log"
+	"go.uber.org/zap"
 )
 
 var ErrPathTraversal = errors.New("path traversal denied")
@@ -64,7 +64,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 	}
 	args = append(args, "--", req.Pattern, searchDir)
 
-	log.Infow(ctx, "executing ripgrep", "args", args)
+	zap.L().Info("executing ripgrep", zap.Strings("args", args))
 
 	cmd := exec.CommandContext(ctx, "rg", args...)
 	stdout, err := cmd.StdoutPipe()

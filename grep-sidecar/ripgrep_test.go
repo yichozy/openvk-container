@@ -11,10 +11,6 @@ import (
 
 // testConfig 基于真实 .env 的路径配置
 func testConfig() *Config {
-	dataDir := os.Getenv("GREP_DATA_DIR")
-	if dataDir == "" {
-		dataDir = "/Users/binhuchen/workspace/openvk-container/data"
-	}
 	openVikingPath := os.Getenv("OPEN_VIKING_DATA_PATH")
 	if openVikingPath == "" {
 		openVikingPath = "/Users/binhuchen/workspace/openvk-container/data/viking"
@@ -25,7 +21,6 @@ func testConfig() *Config {
 	}
 	return &Config{
 		Port:             "1935",
-		DataDir:          dataDir,
 		Timeout:          10 * time.Second,
 		MaxResults:       500,
 		MaxFilesize:      "50M",

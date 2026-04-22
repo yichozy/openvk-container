@@ -10,23 +10,17 @@ import (
 
 type Config struct {
 	Port             string
-	DataDir          string
 	Timeout          time.Duration
 	MaxResults       int
 	MaxFilesize      string
-	OpenVikingPath   string // OPEN_VIKING_DATA_PATH, e.g. /data/workspace/viking
-	OpenVikingPrefix string // computed: OpenVikingPath + "/" + OpenVikingAccount + "/"
+	OpenVikingPath   string
+	OpenVikingPrefix string // OpenVikingPath + "/" + OpenVikingAccount + "/"
 }
 
 func Load() (*Config, error) {
 	port := os.Getenv("GREP_PORT")
 	if port == "" {
 		port = "1935"
-	}
-
-	dataDir := os.Getenv("GREP_DATA_DIR")
-	if dataDir == "" {
-		dataDir = "/data"
 	}
 
 	timeoutStr := os.Getenv("GREP_TIMEOUT")
@@ -54,7 +48,7 @@ func Load() (*Config, error) {
 
 	openVikingPath := os.Getenv("OPEN_VIKING_DATA_PATH")
 	if openVikingPath == "" {
-		openVikingPath = "/data/workspace/viking"
+		return nil, fmt.Errorf("OPEN_VIKING_DATA_PATH environment variable is required")
 	}
 
 	openVikingAccount := os.Getenv("OPEN_VIKING_ACCOUNT")
@@ -63,17 +57,8 @@ func Load() (*Config, error) {
 	}
 	openVikingPrefix := filepath.Clean(openVikingPath) + "/" + openVikingAccount + "/"
 
-	info, err := os.Stat(dataDir)
-	if err != nil {
-		return nil, fmt.Errorf("data directory %s: %w", dataDir, err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("data directory %s is not a directory", dataDir)
-	}
-
 	return &Config{
 		Port:             port,
-		DataDir:          dataDir,
 		Timeout:          timeout,
 		MaxResults:       maxResults,
 		MaxFilesize:      maxFilesize,
