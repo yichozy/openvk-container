@@ -3,6 +3,9 @@
 # Remove the existing container if it exists
 docker rm -f openvk-grep-sidecar 2>/dev/null || true
 
+# Pull the latest image
+docker pull enzii/openvk-grep-sidecar:latest
+
 # Run the grep-sidecar container alongside the OpenViking container
 docker run -d \
   --name openvk-grep-sidecar \
