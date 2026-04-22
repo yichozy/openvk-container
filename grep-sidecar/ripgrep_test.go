@@ -106,10 +106,10 @@ func TestSearch_BasicPattern(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Files) == 0 {
+	if len(result.URIs) == 0 {
 		t.Error("expected at least one file matching PFS")
 	}
-	for _, f := range result.Files {
+	for _, f := range result.URIs {
 		if !strings.HasPrefix(f, "viking://") {
 			t.Errorf("expected viking:// prefix, got %q", f)
 		}
@@ -131,10 +131,10 @@ func TestSearch_WithGlob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Files) == 0 {
+	if len(result.URIs) == 0 {
 		t.Error("expected at least one .md file matching PFS")
 	}
-	for _, f := range result.Files {
+	for _, f := range result.URIs {
 		if filepath.Ext(f) != ".md" {
 			t.Errorf("expected .md extension, got %q", f)
 		}
@@ -153,10 +153,10 @@ func TestSearch_MaxResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Files) > 3 {
-		t.Errorf("expected at most 3 files, got %d", len(result.Files))
+	if len(result.URIs) > 3 {
+		t.Errorf("expected at most 3 files, got %d", len(result.URIs))
 	}
-	if len(result.Files) == 3 && !result.Truncated {
+	if len(result.URIs) == 3 && !result.Truncated {
 		t.Error("expected truncated=true when hitting max_results")
 	}
 }
@@ -172,8 +172,8 @@ func TestSearch_NoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Files) != 0 {
-		t.Errorf("expected 0 files, got %d", len(result.Files))
+	if len(result.URIs) != 0 {
+		t.Errorf("expected 0 files, got %d", len(result.URIs))
 	}
 }
 
@@ -214,7 +214,7 @@ func TestSearch_RegexPattern(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Files) == 0 {
+	if len(result.URIs) == 0 {
 		t.Error("expected at least one file matching regex pattern")
 	}
 }
@@ -231,8 +231,8 @@ func TestSearch_WithoutVikingScheme(t *testing.T) {
 		Pattern:   "PFS",
 		Directory: "resources/curation/TNBC",
 	})
-	if len(withScheme.Files) != len(withoutScheme.Files) {
+	if len(withScheme.URIs) != len(withoutScheme.URIs) {
 		t.Errorf("viking:// and non-viking:// should return same results: %d vs %d",
-			len(withScheme.Files), len(withoutScheme.Files))
+			len(withScheme.URIs), len(withoutScheme.URIs))
 	}
 }

@@ -26,7 +26,7 @@ type SearchRequest struct {
 }
 
 type SearchData struct {
-	Files     []string `json:"files"`
+	URIs      []string `json:"uris"`
 	Truncated bool     `json:"truncated"`
 }
 
@@ -85,7 +85,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		maxResults = req.MaxResults
 	}
 
-	var files []string
+	var uris []string
 	truncated := false
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
@@ -100,7 +100,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		default:
 		}
 
-		if len(files) >= maxResults {
+		if len(uris) >= maxResults {
 			truncated = true
 			cmd.Process.Kill()
 			io.Copy(io.Discard, stdout)
@@ -110,9 +110,9 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 
 		rawPath := scanner.Text()
 		if rel, err := filepath.Rel(cfg.OpenVikingPrefix, rawPath); err == nil && !strings.HasPrefix(rel, "..") {
-			files = append(files, "viking://"+rel)
+			uris = append(uris, "viking://"+rel)
 		} else {
-			files = append(files, rawPath)
+			uris = append(uris, rawPath)
 		}
 	}
 
@@ -121,7 +121,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 	cmd.Wait()
 
 	// Check for ripgrep error (exit code 2 = regex error, bad args, etc.)
-	if len(files) == 0 && !truncated {
+	if len(uris) == 0 && !truncated {
 		if exitErr, ok := cmd.ProcessState.Sys().(interface{ ExitStatus() int }); ok {
 			if exitErr.ExitStatus() == 2 {
 				return nil, fmt.Errorf("invalid regex: %s", strings.TrimSpace(string(stderrBytes)))
@@ -130,7 +130,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 	}
 
 	return &SearchData{
-		Files:     files,
+		URIs:      uris,
 		Truncated: truncated,
 	}, nil
 }
