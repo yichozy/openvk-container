@@ -97,7 +97,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 
 		log.Infow(c.Request.Context(), "search completed",
 			"pattern", req.Pattern,
-			"result_count", len(result.Files),
+			"result_count", len(result.URIs),
 			"truncated", result.Truncated,
 		)
 
