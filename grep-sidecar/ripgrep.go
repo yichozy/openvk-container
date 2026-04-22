@@ -54,6 +54,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 
 	args := []string{
 		"-l",
+		"--engine", "auto",
 		"--max-filesize", cfg.MaxFilesize,
 	}
 	if req.Hidden {

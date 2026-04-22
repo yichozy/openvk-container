@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o grep-server .
 
 FROM alpine:3.20
 
-RUN apk add --no-cache ripgrep
+RUN apk add --no-cache ripgrep pcre2
 
 WORKDIR /app
 COPY --from=builder /build/grep-server .
