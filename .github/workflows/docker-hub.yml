@@ -45,6 +45,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME_GREP }}
+          flavor: |
+            suffix=${{ matrix.os == 'ubuntu-22.04' && '-amd64' || '-arm64' }}
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
