@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/gin-gonic/gin"
-	"github.com/yichozy/hopebox/log"
 )
 
 type SearchResponse struct {
@@ -41,7 +42,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req SearchRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			log.Warnw(c.Request.Context(), "invalid search request", "error", err.Error())
+			zap.L().Warn("invalid search request", zap.Error(err))
 			c.JSON(http.StatusBadRequest, SearchResponse{
 				Status: "error",
 				Error:  "invalid request: " + err.Error(),
@@ -49,18 +50,18 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 			return
 		}
 
-		log.Infow(c.Request.Context(), "search request",
-			"pattern", req.Pattern,
-			"directory", req.Directory,
-			"glob", req.Glob,
+		zap.L().Info("search request",
+			zap.String("pattern", req.Pattern),
+			zap.String("directory", req.Directory),
+			zap.String("glob", req.Glob),
 		)
 
 		result, err := Search(c.Request.Context(), cfg, &req)
 		if err != nil {
 			if errors.Is(err, ErrPathTraversal) {
-				log.Warnw(c.Request.Context(), "path traversal denied",
-					"pattern", req.Pattern,
-					"directory", req.Directory,
+				zap.L().Warn("path traversal denied",
+					zap.String("pattern", req.Pattern),
+					zap.String("directory", req.Directory),
 				)
 				c.JSON(http.StatusForbidden, SearchResponse{
 					Status: "error",
@@ -69,7 +70,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 				return
 			}
 			if strings.Contains(err.Error(), "invalid regex") {
-				log.Warnw(c.Request.Context(), "invalid regex", "error", err.Error())
+				zap.L().Warn("invalid regex", zap.Error(err))
 				c.JSON(http.StatusBadRequest, SearchResponse{
 					Status: "error",
 					Error:  err.Error(),
@@ -77,9 +78,9 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 				return
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
-				log.Warnw(c.Request.Context(), "search timed out",
-					"pattern", req.Pattern,
-					"directory", req.Directory,
+				zap.L().Warn("search timed out",
+					zap.String("pattern", req.Pattern),
+					zap.String("directory", req.Directory),
 				)
 				c.JSON(http.StatusGatewayTimeout, SearchResponse{
 					Status: "error",
@@ -87,7 +88,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 				})
 				return
 			}
-			log.Errorw(c.Request.Context(), "search failed", "error", err.Error())
+			zap.L().Error("search failed", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, SearchResponse{
 				Status: "error",
 				Error:  err.Error(),
@@ -95,10 +96,10 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 			return
 		}
 
-		log.Infow(c.Request.Context(), "search completed",
-			"pattern", req.Pattern,
-			"result_count", len(result.URIs),
-			"truncated", result.Truncated,
+		zap.L().Info("search completed",
+			zap.String("pattern", req.Pattern),
+			zap.Int("result_count", len(result.URIs)),
+			zap.Bool("truncated", result.Truncated),
 		)
 
 		c.JSON(http.StatusOK, SearchResponse{
