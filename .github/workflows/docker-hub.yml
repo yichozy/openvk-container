@@ -25,6 +25,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Docker
+        if: runner.os == 'macOS'
+        uses: crazy-max/ghaction-setup-docker@v3
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
