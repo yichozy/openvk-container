@@ -15,8 +15,8 @@ jobs:
     name: Build and Push
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-latest]
-    runs-on: ${{ matrix.os }}
+        platform: [linux/amd64, linux/arm64]
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
       packages: write
@@ -25,11 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker
-        if: runner.os == 'macOS'
-        run: |
-          brew install colima docker
-          colima start
+
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -52,7 +48,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME_GREP }}
           flavor: |
-            suffix=${{ matrix.os == 'ubuntu-22.04' && '-amd64' || '-arm64' }}
+            suffix=${{ matrix.platform == 'linux/amd64' && '-amd64' || '-arm64' }}
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
@@ -67,4 +63,4 @@ jobs:
           labels: ${{ steps.meta-grep.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: ${{ matrix.os == 'ubuntu-22.04' && 'linux/amd64' || 'linux/arm64' }}
+          platforms: ${{ matrix.platform }}
