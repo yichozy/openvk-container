@@ -27,7 +27,9 @@ jobs:
 
       - name: Set up Docker
         if: runner.os == 'macOS'
-        uses: crazy-max/ghaction-setup-docker@v3
+        run: |
+          brew install colima docker
+          colima start
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
