@@ -147,7 +147,7 @@ func (s *Syncer) syncToDest(ctx context.Context, dest string) syncResult {
 
 	start := time.Now()
 
-	args := []string{"-av", "--delete"}
+	args := []string{"-av", "--delete", "--no-times"}
 	for _, excl := range s.cfg.SyncExcludes {
 		args = append(args, "--exclude="+excl)
 	}
