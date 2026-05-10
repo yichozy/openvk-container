@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openviking.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openviking.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "openviking.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: openvk
+      port: {{ .Values.service.port }}
+      targetPort: 1933
+      protocol: TCP
+    - name: sidecar
+      port: {{ .Values.service.sidecarPort }}
+      targetPort: {{ .Values.sidecar.port }}
+      protocol: TCP
+    {{- if eq .Values.role "replica" }}
+    - name: rsync
+      port: {{ .Values.sidecar.rsyncDaemonPort }}
+      targetPort: {{ .Values.sidecar.rsyncDaemonPort }}
+      protocol: TCP
+    {{- end }}

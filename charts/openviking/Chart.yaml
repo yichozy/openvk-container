@@ -1,0 +1,13 @@
+apiVersion: v2
+name: openviking
+description: Helm chart for OpenViking deployment with ov-sidecar sync
+type: application
+version: 0.1.0
+appVersion: "v0.3.8"
+maintainers:
+  - name: openvk-team
+keywords:
+  - openviking
+  - knowledge-graph
+  - vector-search
+home: https://github.com/volcengine/openviking

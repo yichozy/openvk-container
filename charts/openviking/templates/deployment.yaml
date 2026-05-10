@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openviking.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openviking.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "openviking.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openviking.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/ov-conf: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ include "openviking.fullname" . }}
+          image: "{{ .Values.openviking.image.repository }}:{{ .Values.openviking.image.tag }}"
+          imagePullPolicy: {{ .Values.openviking.image.pullPolicy }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/ov.conf
+              subPath: ov.conf
+              readOnly: true
+            - name: data
+              mountPath: /app/data
+              subPath: data
+          {{- with .Values.openviking.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+        - name: ov-sidecar
+          image: "{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}"
+          imagePullPolicy: {{ .Values.sidecar.image.pullPolicy }}
+          ports:
+            - name: sidecar
+              containerPort: {{ .Values.sidecar.port }}
+              protocol: TCP
+            {{- if eq .Values.role "replica" }}
+            - name: rsync
+              containerPort: {{ .Values.sidecar.rsyncDaemonPort }}
+              protocol: TCP
+            {{- end }}
+          env:
+            - name: OPEN_VIKING_DATA_PATH
+              value: /app/data/workspace/viking
+            - name: OPEN_VIKING_ACCOUNT
+              value: {{ .Values.sidecar.openVikingAccount | quote }}
+            {{- if eq .Values.role "primary" }}
+            - name: SYNC_SOURCE_DIR
+              value: {{ .Values.sync.sourceDir | quote }}
+            - name: SYNC_DEST_DIRS
+              value: {{ .Values.sync.destDirs | quote }}
+            - name: SYNC_INTERVAL
+              value: {{ .Values.sync.interval | quote }}
+            - name: SYNC_EXCLUDES
+              value: {{ .Values.sync.excludes | quote }}
+            {{- end }}
+            {{- if eq .Values.role "replica" }}
+            - name: RSYNC_DAEMON_ENABLED
+              value: "true"
+            - name: RSYNC_DAEMON_PORT
+              value: {{ .Values.sidecar.rsyncDaemonPort | quote }}
+            - name: RSYNC_MODULE_PATH
+              value: /app/data/workspace/viking
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+              subPath: data
+          {{- with .Values.sidecar.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.sidecar.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.sidecar.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ include "openviking.fullname" . }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "openviking.fullname" . }}

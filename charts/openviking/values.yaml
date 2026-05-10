@@ -1,0 +1,81 @@
+# -- 角色: standalone(单机) / primary(主，推送同步) / replica(从，接收同步)
+role: standalone
+
+labels:
+  app: openvk-container
+  version: v1
+
+imagePullSecrets: []
+
+openviking:
+  image:
+    repository: ghcr.io/volcengine/openviking
+    tag: v0.3.8
+    pullPolicy: IfNotPresent
+  # resources: null
+  #   requests:
+  #     cpu: 500m
+  #     memory: 1Gi
+  #   limits:
+  #     cpu: "2"
+  #     memory: 4Gi
+
+sidecar:
+  image:
+    repository: enzii/ov-sidecar
+    tag: "0.2.9"
+    pullPolicy: IfNotPresent
+  port: 1935
+  openVikingAccount: default
+  rsyncDaemonPort: 873
+  # resources: null
+  #   requests:
+  #     cpu: 100m
+  #     memory: 256Mi
+  #   limits:
+  #     cpu: "1"
+  #     memory: 512Mi
+
+# -- 同步配置 (primary 角色生效)
+sync:
+  interval: "5m"
+  excludes: ".openviking.pid,temp/,_system/queue/,_system/redo/,log/"
+  sourceDir: "/app/data/"
+  destDirs: ""
+
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass:
+
+service:
+  type: ClusterIP
+  port: 1934
+  sidecarPort: 1935
+
+# -- ov.conf 配置 (存储为 Secret，包含 API keys)
+config:
+  storageWorkspace: "./data/workspace"
+  server:
+    host: "0.0.0.0"
+    port: 1933
+    root_api_key: ""  # REQUIRED: set via -f or --set
+    cors_origins:
+      - "*"
+  log:
+    level: "INFO"
+    output: "stdout"
+  embedding:
+    dense:
+      api_base: "https://ark.ap-southeast.bytepluses.com/api/v3"
+      api_key: ""  # REQUIRED: set via -f or --set
+      provider: "volcengine"
+      dimension: 1024
+      model: "skylark-embedding-vision-250615"
+    max_concurrent: 50
+  vlm:
+    api_base: "https://ark.ap-southeast.bytepluses.com/api/v3"
+    api_key: ""  # REQUIRED: set via -f or --set
+    provider: "volcengine"
+    model: "seed-1-8-251228"
+    max_concurrent: 200
