@@ -26,9 +26,9 @@ type Config struct {
 	SyncExcludes []string
 	SyncInterval time.Duration
 
-	RsyncDaemonEnabled bool
-	RsyncDaemonPort    string
-	RsyncModulePath    string
+	RsyncDaemonEnabled    bool
+	RsyncDaemonPort       string
+	RsyncDaemonConfigPath string
 }
 
 const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/"
@@ -70,10 +70,7 @@ func Load() (*Config, error) {
 	if os.Getenv("RSYNC_DAEMON_ENABLED") == "true" {
 		cfg.RsyncDaemonEnabled = true
 		cfg.RsyncDaemonPort = getEnv("RSYNC_DAEMON_PORT", "873")
-		cfg.RsyncModulePath = getEnv("RSYNC_MODULE_PATH", cfg.OpenVikingPath)
-		if cfg.RsyncModulePath == "" {
-			return nil, fmt.Errorf("RSYNC_MODULE_PATH is required when rsync daemon is enabled")
-		}
+		cfg.RsyncDaemonConfigPath = getEnv("RSYNC_DAEMON_CONFIG_PATH", "/etc/rsyncd.conf")
 	}
 
 	return cfg, nil
