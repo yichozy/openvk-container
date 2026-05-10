@@ -17,6 +17,10 @@ spec:
       annotations:
         checksum/ov-conf: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -70,13 +74,17 @@ spec:
               value: "true"
             - name: RSYNC_DAEMON_PORT
               value: {{ .Values.sidecar.rsyncDaemonPort | quote }}
-            - name: RSYNC_MODULE_PATH
-              value: /app/data/workspace/viking
+            - name: RSYNC_DAEMON_CONFIG_PATH
+              value: /etc/rsyncd.conf
             {{- end }}
           volumeMounts:
             - name: data
               mountPath: /app/data
               subPath: data
+            - name: rsyncd-config
+              mountPath: /etc/rsyncd.conf
+              subPath: rsyncd.conf
+              readOnly: true
           {{- with .Values.sidecar.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -95,6 +103,9 @@ spec:
             periodSeconds: 10
 
       volumes:
+        - name: rsyncd-config
+          configMap:
+            name: {{ include "openviking.fullname" . }}-rsyncd-config
         - name: config
           secret:
             secretName: {{ include "openviking.fullname" . }}

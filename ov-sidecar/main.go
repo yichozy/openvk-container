@@ -39,7 +39,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			daemon := NewDaemon(cfg.RsyncDaemonPort, cfg.RsyncModulePath)
+			daemon := NewDaemon(cfg.RsyncDaemonPort, cfg.RsyncDaemonConfigPath)
 			errCh := make(chan error, 1)
 			go func() { errCh <- daemon.Start() }()
 			select {

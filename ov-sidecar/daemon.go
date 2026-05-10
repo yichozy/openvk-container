@@ -9,36 +9,25 @@ import (
 	"go.uber.org/zap"
 )
 
-const rsyncdConfPath = "/etc/rsyncd.conf"
-
 // Daemon manages an rsync daemon subprocess.
 type Daemon struct {
 	port       string
-	modulePath string
+	configPath string
 	cmd        *exec.Cmd
 }
 
 // NewDaemon creates a Daemon that will listen on port and serve files
 // from modulePath under the "viking" module.
-func NewDaemon(port, modulePath string) *Daemon {
-	return &Daemon{port: port, modulePath: modulePath}
+func NewDaemon(port, configPath string) *Daemon {
+	return &Daemon{port: port, configPath: configPath}
 }
 
 // Start writes rsyncd.conf and launches the rsync daemon in foreground mode.
 // It blocks until the daemon exits.
 func (d *Daemon) Start() error {
-	conf := fmt.Sprintf(`[viking]
-path = %s
-read only = false
-use chroot = no
-`, d.modulePath)
-	if err := os.WriteFile(rsyncdConfPath, []byte(conf), 0644); err != nil {
-		return fmt.Errorf("write rsyncd.conf: %w", err)
-	}
-
 	d.cmd = exec.Command("rsync",
 		"--daemon", "--no-detach",
-		"--config="+rsyncdConfPath,
+		"--config="+d.configPath,
 		"--port="+d.port,
 	)
 	d.cmd.Stdout = os.Stdout
@@ -46,7 +35,7 @@ use chroot = no
 
 	zap.L().Info("rsync daemon starting",
 		zap.String("port", d.port),
-		zap.String("module_path", d.modulePath),
+		zap.String("config_path", d.configPath),
 	)
 
 	if err := d.cmd.Start(); err != nil {
