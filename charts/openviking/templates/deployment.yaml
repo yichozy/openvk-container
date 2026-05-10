@@ -17,6 +17,10 @@ spec:
       annotations:
         checksum/ov-conf: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
