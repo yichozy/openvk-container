@@ -1,0 +1,28 @@
+OpenViking has been deployed!
+
+{{ $fullname := include "openviking.fullname" . }}
+
+Instance: {{ $fullname }}
+Namespace: {{ .Release.Namespace }}
+Role: {{ .Values.role }}
+
+Get the pod:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app={{ .Values.labels.app }}" -o jsonpath="{.items[0].metadata.name}")
+
+OpenViking API (port {{ .Values.service.port }}):
+  kubectl port-forward --namespace {{ .Release.Namespace }} $POD_NAME {{ .Values.service.port }}:1934
+
+Sidecar (port {{ .Values.service.sidecarPort }}):
+  kubectl port-forward svc/{{ $fullname }} --namespace {{ .Release.Namespace }} {{ .Values.service.sidecarPort }}:{{ .Values.sidecar.port }}
+
+{{- if eq .Values.role "primary" }}
+
+Primary mode — sync enabled. Trigger manual sync:
+  kubectl exec --namespace {{ .Release.Namespace }} $POD_NAME -c ov-sidecar -- wget -qO- --post-data='' http://localhost:{{ .Values.sidecar.port }}/sync
+
+{{- end }}
+{{- if eq .Values.role "replica" }}
+
+Replica mode — rsync daemon listening on port {{ .Values.sidecar.rsyncDaemonPort }}.
+
+{{- end }}

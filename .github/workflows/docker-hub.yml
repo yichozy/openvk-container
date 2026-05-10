@@ -8,7 +8,7 @@ on:
 env:
   REGISTRY: docker.io
   IMAGE_NAME: enzii/openvk-container
-  IMAGE_NAME_GREP: enzii/openvk-grep-sidecar
+  IMAGE_NAME_GREP: enzii/ov-sidecar
 
 jobs:
   build-and-push:
@@ -39,7 +39,7 @@ jobs:
 
 
 
-      - name: Extract Docker metadata for grep-sidecar
+      - name: Extract Docker metadata for ov-sidecar
         id: meta-grep
         uses: docker/metadata-action@v5
         with:
@@ -48,11 +48,11 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest
 
-      - name: Build and push grep-sidecar image
+      - name: Build and push ov-sidecar image
         uses: docker/build-push-action@v5
         with:
-          context: ./grep-sidecar
-          file: ./grep-sidecar/Dockerfile
+          context: ./ov-sidecar
+          file: ./ov-sidecar/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-grep.outputs.tags }}
           labels: ${{ steps.meta-grep.outputs.labels }}
