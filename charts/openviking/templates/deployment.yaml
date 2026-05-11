@@ -108,7 +108,7 @@ spec:
             name: {{ include "openviking.fullname" . }}-rsyncd-config
         - name: config
           secret:
-            secretName: {{ include "openviking.fullname" . }}
+            secretName: {{ include "openviking.fullname" . }}-ov-config
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "openviking.fullname" . }}

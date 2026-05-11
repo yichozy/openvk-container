@@ -61,7 +61,7 @@ func Load() (*Config, error) {
 			cfg.SyncEnabled = true
 			cfg.SyncSource = syncSource
 			cfg.SyncDests = splitPaths(syncDests)
-			cfg.SyncInterval = parseDuration("SYNC_INTERVAL", "30m")
+			cfg.SyncInterval = parseDuration("SYNC_INTERVAL", "5m")
 			cfg.SyncExcludes = splitPaths(getEnv("SYNC_EXCLUDES", defaultExcludes))
 		}
 	}

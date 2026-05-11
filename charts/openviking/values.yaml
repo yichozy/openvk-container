@@ -39,7 +39,7 @@ sidecar:
 # -- 同步配置 (primary 角色生效)
 sync:
   interval: "5m"
-  excludes: ".openviking.pid,temp/,_system/queue/,_system/redo/,log/"
+  excludes: ".openviking.pid"
   sourceDir: "/app/data/"
   destDirs: ""
 
@@ -50,7 +50,7 @@ persistence:
 
 service:
   type: ClusterIP
-  port: 1934
+  port: 1933
   sidecarPort: 1935
 
 # -- ov.conf 配置 (存储为 Secret，包含 API keys)

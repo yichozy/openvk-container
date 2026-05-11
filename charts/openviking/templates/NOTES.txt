@@ -10,7 +10,7 @@ Get the pod:
   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app={{ .Values.labels.app }}" -o jsonpath="{.items[0].metadata.name}")
 
 OpenViking API (port {{ .Values.service.port }}):
-  kubectl port-forward --namespace {{ .Release.Namespace }} $POD_NAME {{ .Values.service.port }}:1934
+  kubectl port-forward --namespace {{ .Release.Namespace }} $POD_NAME {{ .Values.service.port }}:1933
 
 Sidecar (port {{ .Values.service.sidecarPort }}):
   kubectl port-forward svc/{{ $fullname }} --namespace {{ .Release.Namespace }} {{ .Values.service.sidecarPort }}:{{ .Values.sidecar.port }}
