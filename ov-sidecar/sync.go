@@ -15,9 +15,8 @@ import (
 )
 
 type syncResult struct {
-	dest  string
-	files int
-	err   error
+	dest string
+	err  error
 }
 
 // Syncer performs rsync from source to replica directories.
@@ -147,7 +146,7 @@ func (s *Syncer) syncToDest(ctx context.Context, dest string) syncResult {
 
 	start := time.Now()
 
-	args := []string{"-av", "--delete", "--no-times"}
+	args := []string{"-avz", "--delete", "--times"}
 	for _, excl := range s.cfg.SyncExcludes {
 		args = append(args, "--exclude="+excl)
 	}
@@ -166,9 +165,6 @@ func (s *Syncer) syncToDest(ctx context.Context, dest string) syncResult {
 	err := cmd.Run()
 	duration := time.Since(start)
 
-	var fileCount int
-	fmt.Sscanf(stdout.String(), "Number of regular files transferred: %d", &fileCount)
-
 	if err != nil {
 		return syncResult{
 			dest: dest,
@@ -178,11 +174,10 @@ func (s *Syncer) syncToDest(ctx context.Context, dest string) syncResult {
 
 	zap.L().Info("rsync completed",
 		zap.String("dest", dest),
-		zap.Int("file_count", fileCount),
 		zap.Duration("duration", duration),
 	)
 
-	return syncResult{dest: dest, files: fileCount}
+	return syncResult{dest: dest}
 }
 
 func validateDestURL(dest string) error {
