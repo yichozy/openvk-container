@@ -96,7 +96,7 @@ func TestSearch_BasicPattern(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "PFS",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -120,7 +120,7 @@ func TestSearch_WithGlob(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "PFS",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 		Glob:      "*.md",
 	})
 	if err != nil {
@@ -142,7 +142,7 @@ func TestSearch_MaxResults(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:    "PFS",
-		Directory:  "viking://resources/curation/TNBC",
+		Directories: []string{  "viking://resources/curation/TNBC"},
 		MaxResults: 3,
 	})
 	if err != nil {
@@ -162,7 +162,7 @@ func TestSearch_NoMatch(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "ZZZNONEXISTENT_PATTERN_XYZ_999",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -178,7 +178,7 @@ func TestSearch_InvalidRegex(t *testing.T) {
 
 	_, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "[invalid",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err == nil {
 		t.Fatal("expected error for invalid regex, got nil")
@@ -191,7 +191,7 @@ func TestSearch_PathTraversal(t *testing.T) {
 
 	_, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "test",
-		Directory: "viking://../../etc",
+		Directories: []string{ "viking://../../etc"},
 	})
 	if err != ErrPathTraversal {
 		t.Errorf("expected ErrPathTraversal, got %v", err)
@@ -204,7 +204,7 @@ func TestSearch_RegexPattern(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "(progress|disease).*(free|survival)",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -220,11 +220,11 @@ func TestSearch_WithoutVikingScheme(t *testing.T) {
 
 	withScheme, _ := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "PFS",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	withoutScheme, _ := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "PFS",
-		Directory: "resources/curation/TNBC",
+		Directories: []string{ "resources/curation/TNBC"},
 	})
 	if len(withScheme.URIs) != len(withoutScheme.URIs) {
 		t.Errorf("viking:// and non-viking:// should return same results: %d vs %d",
@@ -243,7 +243,7 @@ func TestSearch_PCRE2Lookahead(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "(?=.*PFS)(?=.*overall)",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -267,7 +267,7 @@ func TestSearch_AlternationOrder(t *testing.T) {
 
 	result, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "PFS.*overall|overall.*PFS",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -292,7 +292,7 @@ func TestSearch_PCRE2LookaheadSubsetOfAlternation(t *testing.T) {
 
 	lookahead, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "(?=.*PFS)(?=.*overall)",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("lookahead search failed: %v", err)
@@ -300,7 +300,7 @@ func TestSearch_PCRE2LookaheadSubsetOfAlternation(t *testing.T) {
 
 	alternation, err := Search(ctx, cfg, &SearchRequest{
 		Pattern:   "PFS.*overall|overall.*PFS",
-		Directory: "viking://resources/curation/TNBC",
+		Directories: []string{ "viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("alternation search failed: %v", err)

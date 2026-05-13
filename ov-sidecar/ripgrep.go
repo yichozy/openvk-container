@@ -18,11 +18,11 @@ var ErrPathTraversal = errors.New("path traversal denied")
 const vikingScheme = "viking://"
 
 type SearchRequest struct {
-	Pattern    string `json:"pattern" binding:"required"`
-	Directory  string `json:"directory" binding:"required"`
-	Glob       string `json:"glob,omitempty"`
-	MaxResults int    `json:"max_results,omitempty"`
-	Hidden     bool   `json:"hidden,omitempty"`
+	Pattern     string   `json:"pattern" binding:"required"`
+	Directories []string `json:"directories" binding:"required,min=1"`
+	Glob        string   `json:"glob,omitempty"`
+	MaxResults  int      `json:"max_results,omitempty"`
+	Hidden      bool     `json:"hidden,omitempty"`
 }
 
 type SearchData struct {
@@ -47,9 +47,13 @@ func resolveDirectory(cfg *Config, dir string) (string, error) {
 }
 
 func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, error) {
-	searchDir, err := resolveDirectory(cfg, req.Directory)
-	if err != nil {
-		return nil, err
+	searchDirs := make([]string, 0, len(req.Directories))
+	for _, dir := range req.Directories {
+		resolved, err := resolveDirectory(cfg, dir)
+		if err != nil {
+			return nil, err
+		}
+		searchDirs = append(searchDirs, resolved)
 	}
 
 	args := []string{
@@ -63,7 +67,8 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 	if req.Glob != "" {
 		args = append(args, "--glob", req.Glob)
 	}
-	args = append(args, "--", req.Pattern, searchDir)
+	args = append(args, "--", req.Pattern)
+	args = append(args, searchDirs...)
 
 	zap.L().Info("executing ripgrep", zap.Strings("args", args))
 
