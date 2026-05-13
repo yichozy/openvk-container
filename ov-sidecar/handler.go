@@ -78,7 +78,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 
 		zap.L().Info("search request",
 			zap.String("pattern", req.Pattern),
-			zap.String("directory", req.Directory),
+			zap.Strings("directories", req.Directories),
 			zap.String("glob", req.Glob),
 		)
 
@@ -87,7 +87,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 			if errors.Is(err, ErrPathTraversal) {
 				zap.L().Warn("path traversal denied",
 					zap.String("pattern", req.Pattern),
-					zap.String("directory", req.Directory),
+					zap.Strings("directories", req.Directories),
 				)
 				c.JSON(http.StatusForbidden, SearchResponse{
 					Status: "error",
@@ -106,7 +106,7 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 			if errors.Is(err, context.DeadlineExceeded) {
 				zap.L().Warn("search timed out",
 					zap.String("pattern", req.Pattern),
-					zap.String("directory", req.Directory),
+					zap.Strings("directories", req.Directories),
 				)
 				c.JSON(http.StatusGatewayTimeout, SearchResponse{
 					Status: "error",
