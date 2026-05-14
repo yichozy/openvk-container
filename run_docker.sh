@@ -7,9 +7,9 @@ docker rm -f openviking 2>/dev/null || true
 docker run -d \
   --name openviking \
   -p 1933:1933 \
-  -v "$(pwd)/.openviking/ov.conf:/app/ov.conf" \
+  -v "$(pwd)/.openviking/ov.conf:/app/.openviking/ov.conf" \
   -v "$(pwd)/data:/app/data" \
   --restart unless-stopped \
-  ghcr.io/volcengine/openviking:main
+  ghcr.io/volcengine/openviking:v0.3.16
 
 echo "OpenViking container started successfully."
