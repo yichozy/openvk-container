@@ -61,6 +61,9 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		"--engine", "auto",
 		"--max-filesize", cfg.MaxGrepFilesize,
 	}
+	if cfg.GrepThreads > 0 {
+		args = append(args, "--threads", fmt.Sprintf("%d", cfg.GrepThreads))
+	}
 	if req.Hidden {
 		args = append(args, "--hidden", "--no-ignore-vcs")
 	}
@@ -110,7 +113,6 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 			truncated = true
 			cmd.Process.Kill()
 			io.Copy(io.Discard, stdout)
-			cmd.Wait()
 			break
 		}
 
@@ -124,14 +126,22 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 
 	// Drain stderr
 	stderrBytes, _ := io.ReadAll(stderr)
-	cmd.Wait()
+	waitErr := cmd.Wait()
 
-	// Check for ripgrep error (exit code 2 = regex error, bad args, etc.)
-	if len(uris) == 0 && !truncated {
-		if exitErr, ok := cmd.ProcessState.Sys().(interface{ ExitStatus() int }); ok {
-			if exitErr.ExitStatus() == 2 {
-				return nil, fmt.Errorf("invalid regex: %s", strings.TrimSpace(string(stderrBytes)))
+	if !truncated && waitErr != nil {
+		if exitErr, ok := waitErr.(*exec.ExitError); ok {
+			exitCode := exitErr.ExitCode()
+			stderrStr := strings.TrimSpace(string(stderrBytes))
+			if exitCode == 1 {
+				waitErr = nil
+			} else if exitCode == 2 && isInvalidRegex(stderrStr) {
+				return nil, fmt.Errorf("invalid regex: %s", stderrStr)
+			} else if stderrStr != "" {
+				return nil, fmt.Errorf("ripgrep failed: %s", stderrStr)
 			}
+		}
+		if waitErr != nil {
+			return nil, fmt.Errorf("ripgrep failed: %w", waitErr)
 		}
 	}
 
@@ -139,4 +149,13 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		URIs:      uris,
 		Truncated: truncated,
 	}, nil
+}
+
+func isInvalidRegex(stderr string) bool {
+	s := strings.ToLower(stderr)
+	return strings.Contains(s, "regex parse error") ||
+		strings.Contains(s, "error parsing") ||
+		strings.Contains(s, "unclosed") ||
+		strings.Contains(s, "invalid utf-8") ||
+		strings.Contains(s, "pcre2") && strings.Contains(s, "error")
 }

@@ -9,21 +9,38 @@ import (
 	"time"
 )
 
-// testConfig 基于真实 .env 的路径配置
-func testConfig() *Config {
-	openVikingPath := os.Getenv("OPEN_VIKING_DATA_PATH")
-	if openVikingPath == "" {
-		openVikingPath = "/Users/binhuchen/workspace/openvk-container/data/viking"
+func testConfig(t *testing.T) *Config {
+	t.Helper()
+
+	openVikingAccount := "default"
+	root := t.TempDir()
+	openVikingPath := filepath.Join(root, "viking")
+	baseDir := filepath.Join(openVikingPath, openVikingAccount, "resources", "curation", "TNBC")
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	openVikingAccount := os.Getenv("OPEN_VIKING_ACCOUNT")
-	if openVikingAccount == "" {
-		openVikingAccount = "default"
+
+	files := map[string]string{
+		filepath.Join(baseDir, "a.md"):      "PFS overall survival\n",
+		filepath.Join(baseDir, "b.md"):      "overall PFS\n",
+		filepath.Join(baseDir, "c.md"):      "PFS\n",
+		filepath.Join(baseDir, "d.txt"):     "PFS something\n",
+		filepath.Join(baseDir, "e.txt"):     "PFS and disease free survival\n",
+		filepath.Join(baseDir, "regex.txt"): "progress something survival\n",
 	}
+	for path, content := range files {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write file %s: %v", path, err)
+		}
+	}
+
 	return &Config{
 		Port:             "1935",
 		Timeout:          10 * time.Second,
 		MaxGrepResults:   500,
 		MaxGrepFilesize:  "50M",
+		GrepThreads:      1,
+		MaxConcurrency:   1,
 		OpenVikingPath:   openVikingPath,
 		OpenVikingPrefix: filepath.Clean(openVikingPath) + "/" + openVikingAccount + "/",
 	}
@@ -32,7 +49,7 @@ func testConfig() *Config {
 // ==================== resolveDirectory ====================
 
 func TestResolveDirectory_WithVikingScheme(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 
 	result, err := resolveDirectory(cfg, "viking://resources/curation/TNBC")
 	if err != nil {
@@ -45,7 +62,7 @@ func TestResolveDirectory_WithVikingScheme(t *testing.T) {
 }
 
 func TestResolveDirectory_WithoutVikingScheme(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 
 	result, err := resolveDirectory(cfg, "resources/curation/TNBC")
 	if err != nil {
@@ -58,7 +75,7 @@ func TestResolveDirectory_WithoutVikingScheme(t *testing.T) {
 }
 
 func TestResolveDirectory_LeadingSlash(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 
 	result, err := resolveDirectory(cfg, "/resources/curation/TNBC")
 	if err != nil {
@@ -71,7 +88,7 @@ func TestResolveDirectory_LeadingSlash(t *testing.T) {
 }
 
 func TestResolveDirectory_PathTraversal(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 
 	_, err := resolveDirectory(cfg, "viking://../../etc/passwd")
 	if err != ErrPathTraversal {
@@ -80,7 +97,7 @@ func TestResolveDirectory_PathTraversal(t *testing.T) {
 }
 
 func TestResolveDirectory_PathTraversalWithoutScheme(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 
 	_, err := resolveDirectory(cfg, "../../etc/passwd")
 	if err != ErrPathTraversal {
@@ -91,12 +108,12 @@ func TestResolveDirectory_PathTraversalWithoutScheme(t *testing.T) {
 // ==================== Search (集成测试，依赖真实数据和 rg) ====================
 
 func TestSearch_BasicPattern(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "PFS",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "PFS",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -115,13 +132,13 @@ func TestSearch_BasicPattern(t *testing.T) {
 }
 
 func TestSearch_WithGlob(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "PFS",
-		Directories: []string{ "viking://resources/curation/TNBC"},
-		Glob:      "*.md",
+		Pattern:     "PFS",
+		Directories: []string{"viking://resources/curation/TNBC"},
+		Glob:        "*.md",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -137,13 +154,13 @@ func TestSearch_WithGlob(t *testing.T) {
 }
 
 func TestSearch_MaxResults(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:    "PFS",
-		Directories: []string{  "viking://resources/curation/TNBC"},
-		MaxResults: 3,
+		Pattern:     "PFS",
+		Directories: []string{"viking://resources/curation/TNBC"},
+		MaxResults:  3,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -157,12 +174,12 @@ func TestSearch_MaxResults(t *testing.T) {
 }
 
 func TestSearch_NoMatch(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "ZZZNONEXISTENT_PATTERN_XYZ_999",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "ZZZNONEXISTENT_PATTERN_XYZ_999",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -173,12 +190,12 @@ func TestSearch_NoMatch(t *testing.T) {
 }
 
 func TestSearch_InvalidRegex(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	_, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "[invalid",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "[invalid",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err == nil {
 		t.Fatal("expected error for invalid regex, got nil")
@@ -186,12 +203,12 @@ func TestSearch_InvalidRegex(t *testing.T) {
 }
 
 func TestSearch_PathTraversal(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	_, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "test",
-		Directories: []string{ "viking://../../etc"},
+		Pattern:     "test",
+		Directories: []string{"viking://../../etc"},
 	})
 	if err != ErrPathTraversal {
 		t.Errorf("expected ErrPathTraversal, got %v", err)
@@ -199,12 +216,12 @@ func TestSearch_PathTraversal(t *testing.T) {
 }
 
 func TestSearch_RegexPattern(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "(progress|disease).*(free|survival)",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "(progress|disease).*(free|survival)",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -215,16 +232,16 @@ func TestSearch_RegexPattern(t *testing.T) {
 }
 
 func TestSearch_WithoutVikingScheme(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	withScheme, _ := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "PFS",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "PFS",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	withoutScheme, _ := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "PFS",
-		Directories: []string{ "resources/curation/TNBC"},
+		Pattern:     "PFS",
+		Directories: []string{"resources/curation/TNBC"},
 	})
 	if len(withScheme.URIs) != len(withoutScheme.URIs) {
 		t.Errorf("viking:// and non-viking:// should return same results: %d vs %d",
@@ -238,12 +255,12 @@ func TestSearch_WithoutVikingScheme(t *testing.T) {
 // Equivalent to: grep -P '(?=.*PFS)(?=.*overall)' file.txt
 // Requires --engine auto to transparently switch to PCRE2.
 func TestSearch_PCRE2Lookahead(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "(?=.*PFS)(?=.*overall)",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "(?=.*PFS)(?=.*overall)",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -262,12 +279,12 @@ func TestSearch_PCRE2Lookahead(t *testing.T) {
 // TestSearch_AlternationOrder tests the OR-with-order pattern using standard regex.
 // Equivalent to: grep -E "PFS.*overall|overall.*PFS" file.txt
 func TestSearch_AlternationOrder(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	result, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "PFS.*overall|overall.*PFS",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "PFS.*overall|overall.*PFS",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -287,20 +304,20 @@ func TestSearch_AlternationOrder(t *testing.T) {
 // pattern returns a superset of the alternation (ordered OR) pattern, since
 // AND-in-any-order is strictly more permissive than requiring a specific order.
 func TestSearch_PCRE2LookaheadSubsetOfAlternation(t *testing.T) {
-	cfg := testConfig()
+	cfg := testConfig(t)
 	ctx := context.Background()
 
 	lookahead, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "(?=.*PFS)(?=.*overall)",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "(?=.*PFS)(?=.*overall)",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("lookahead search failed: %v", err)
 	}
 
 	alternation, err := Search(ctx, cfg, &SearchRequest{
-		Pattern:   "PFS.*overall|overall.*PFS",
-		Directories: []string{ "viking://resources/curation/TNBC"},
+		Pattern:     "PFS.*overall|overall.*PFS",
+		Directories: []string{"viking://resources/curation/TNBC"},
 	})
 	if err != nil {
 		t.Fatalf("alternation search failed: %v", err)

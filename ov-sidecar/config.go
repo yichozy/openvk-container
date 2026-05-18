@@ -16,6 +16,8 @@ type Config struct {
 	Timeout           time.Duration
 	MaxGrepResults    int
 	MaxGrepFilesize   string
+	GrepThreads       int
+	MaxConcurrency    int
 	OpenVikingPath    string
 	OpenVikingAccount string
 	OpenVikingPrefix  string // OpenVikingPath + "/" + OpenVikingAccount + "/"
@@ -35,8 +37,8 @@ const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:              getEnv("SIDECAR_PORT", "1935"),
-		Timeout:           parseDuration("SIDECAR_TIMEOUT", "30s"),
+		Port:              getEnvAny([]string{"SIDECAR_PORT", "GREP_PORT"}, "1935"),
+		Timeout:           parseDurationAny([]string{"SIDECAR_TIMEOUT", "GREP_TIMEOUT"}, "30s"),
 		OpenVikingPath:    os.Getenv("OPEN_VIKING_DATA_PATH"),
 		OpenVikingAccount: getEnv("OPEN_VIKING_ACCOUNT", "default"),
 	}
@@ -46,14 +48,31 @@ func Load() (*Config, error) {
 	}
 	cfg.OpenVikingPrefix = filepath.Clean(cfg.OpenVikingPath) + "/" + cfg.OpenVikingAccount + "/"
 
-	maxResultsStr := getEnv("MAX_GREP_RESULTS", "500")
+	maxResultsStr := getEnvAny([]string{"MAX_GREP_RESULTS", "GREP_MAX_RESULTS"}, "500")
 	maxResults, err := strconv.Atoi(maxResultsStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid MAX_GREP_RESULTS: %w", err)
 	}
 	cfg.MaxGrepResults = maxResults
 
-	cfg.MaxGrepFilesize = getEnv("MAX_GREP_FILESIZE", "50M")
+	cfg.MaxGrepFilesize = getEnvAny([]string{"MAX_GREP_FILESIZE", "GREP_MAX_FILESIZE"}, "50M")
+
+	grepThreadsStr := getEnvAny([]string{"SIDECAR_GREP_THREADS", "GREP_THREADS", "RG_THREADS"}, "2")
+	grepThreads, err := strconv.Atoi(grepThreadsStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid SIDECAR_GREP_THREADS: %w", err)
+	}
+	cfg.GrepThreads = grepThreads
+
+	maxConcStr := getEnvAny([]string{"SIDECAR_MAX_CONCURRENCY", "GREP_MAX_CONCURRENCY"}, "2")
+	maxConc, err := strconv.Atoi(maxConcStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid SIDECAR_MAX_CONCURRENCY: %w", err)
+	}
+	if maxConc < 1 {
+		maxConc = 1
+	}
+	cfg.MaxConcurrency = maxConc
 
 	// Sync config
 	if syncSource := os.Getenv("SYNC_SOURCE_DIR"); syncSource != "" {
@@ -83,19 +102,32 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func parseDuration(key, fallback string) time.Duration {
-	value := getEnv(key, fallback)
+func getEnvAny(keys []string, fallback string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return fallback
+}
+
+func parseDurationAny(keys []string, fallback string) time.Duration {
+	value := getEnvAny(keys, fallback)
 	duration, err := time.ParseDuration(value)
 	if err != nil {
 		duration, _ = time.ParseDuration(fallback)
 		zap.L().Warn("invalid duration, using fallback",
-			zap.String("key", key),
+			zap.Strings("keys", keys),
 			zap.String("value", value),
 			zap.String("fallback", fallback),
 			zap.Error(err),
 		)
 	}
 	return duration
+}
+
+func parseDuration(key, fallback string) time.Duration {
+	return parseDurationAny([]string{key}, fallback)
 }
 
 func splitPaths(s string) []string {

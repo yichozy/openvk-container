@@ -11,10 +11,13 @@ docker run -d \
   --name openvk-grep-sidecar \
   -p 1935:1935 \
   -v "$(pwd)/data/workspace:/data/workspace:ro" \
-  -e GREP_PORT=1935 \
-  -e GREP_TIMEOUT=30s \
-  -e GREP_MAX_RESULTS=500 \
-  -e GREP_MAX_FILESIZE=50M \
+  -e SIDECAR_PORT=1935 \
+  -e SIDECAR_TIMEOUT=30s \
+  -e MAX_GREP_RESULTS=500 \
+  -e MAX_GREP_FILESIZE=50M \
+  -e SIDECAR_GREP_THREADS="${SIDECAR_GREP_THREADS:-2}" \
+  -e RG_THREADS="${SIDECAR_GREP_THREADS:-2}" \
+  -e SIDECAR_MAX_CONCURRENCY="${SIDECAR_MAX_CONCURRENCY:-2}" \
   -e OPEN_VIKING_DATA_PATH=/data/workspace/viking \
   -e OPEN_VIKING_ACCOUNT=default \
   --restart unless-stopped \

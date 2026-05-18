@@ -48,9 +48,10 @@ func SetupRoutes(r *gin.Engine, cfg *Config, syncer *Syncer) {
 		c.JSON(http.StatusOK, resp)
 	})
 
+	sem := make(chan struct{}, cfg.MaxConcurrency)
 	search := r.Group("", timeoutMiddleware(cfg.Timeout))
 	{
-		search.POST("/grep", searchHandler(cfg))
+		search.POST("/grep", searchHandler(cfg, sem))
 	}
 
 	if cfg.SyncEnabled {
@@ -64,7 +65,7 @@ func SetupRoutes(r *gin.Engine, cfg *Config, syncer *Syncer) {
 	}
 }
 
-func searchHandler(cfg *Config) gin.HandlerFunc {
+func searchHandler(cfg *Config, sem chan struct{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req SearchRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -72,6 +73,17 @@ func searchHandler(cfg *Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, SearchResponse{
 				Status: "error",
 				Error:  "invalid request: " + err.Error(),
+			})
+			return
+		}
+
+		select {
+		case sem <- struct{}{}:
+			defer func() { <-sem }()
+		case <-c.Request.Context().Done():
+			c.JSON(http.StatusGatewayTimeout, SearchResponse{
+				Status: "error",
+				Error:  "search timed out",
 			})
 			return
 		}
