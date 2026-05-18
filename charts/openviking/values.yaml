@@ -10,7 +10,7 @@ imagePullSecrets: []
 openviking:
   image:
     repository: ghcr.io/volcengine/openviking
-    tag: v0.3.8
+    tag: v0.3.16
     pullPolicy: IfNotPresent
   # resources: null
   #   requests:
@@ -23,7 +23,7 @@ openviking:
 sidecar:
   image:
     repository: enzii/ov-sidecar
-    tag: "0.2.9"
+    tag: "0.3.6"
     pullPolicy: IfNotPresent
   port: 1935
   openVikingAccount: default
@@ -55,7 +55,7 @@ sync:
 
 persistence:
   enabled: true
-  size: 20Gi
+  size: 40Gi
   storageClass:
 
 service:

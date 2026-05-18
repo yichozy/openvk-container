@@ -55,6 +55,10 @@ spec:
               protocol: TCP
             {{- end }}
           env:
+            - name: SIDECAR_GREP_THREADS
+              value: "4"
+            - name: SIDECAR_MAX_CONCURRENCY
+              value: "6"
             - name: OPEN_VIKING_DATA_PATH
               value: /app/data/workspace/viking
             - name: OPEN_VIKING_ACCOUNT
