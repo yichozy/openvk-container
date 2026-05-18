@@ -4,7 +4,7 @@
 docker rm -f openvk-grep-sidecar 2>/dev/null || true
 
 # Pull the latest image
-docker pull enzii/openvk-grep-sidecar:latest
+docker pull enzii/ov-sidecar:latest
 
 # Run the grep-sidecar container alongside the OpenViking container
 docker run -d \
@@ -18,6 +18,6 @@ docker run -d \
   -e OPEN_VIKING_DATA_PATH=/data/workspace/viking \
   -e OPEN_VIKING_ACCOUNT=default \
   --restart unless-stopped \
-  enzii/openvk-grep-sidecar:latest
+  enzii/ov-sidecar:latest
 
 echo "grep-sidecar container started successfully on port 1935."
