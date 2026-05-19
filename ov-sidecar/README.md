@@ -10,6 +10,11 @@
 | `GREP_TIMEOUT`          | `30s`      | Timeout for a single search operation                                      |
 | `GREP_MAX_RESULTS`      | `500`      | Maximum number of matched files to return                                  |
 | `GREP_MAX_FILESIZE`     | `10M`      | Maximum file size for ripgrep to scan                                      |
+| `REDIS_ADDR`            | (Empty)    | Redis address. Empty disables grep result cache                            |
+| `REDIS_PASSWORD`        | (Empty)    | Redis password                                                             |
+| `REDIS_DB`              | `0`        | Redis DB index                                                             |
+| `GREP_CACHE_PREFIX`     | `grep:`    | Redis key prefix                                                           |
+| `GREP_CACHE_TTL`        | `120s`     | Grep cache TTL                                                             |
 | `OPEN_VIKING_DATA_PATH` | (Required) | Absolute path to the OpenViking data root (e.g., `/data/workspace/viking`) |
 | `OPEN_VIKING_ACCOUNT`   | `default`  | Account name used for generating result paths                              |
 
@@ -69,7 +74,7 @@ curl -X POST http://localhost:1935/grep \
   -H 'Content-Type: application/json' \
   -d '{
     "pattern": "(?=.*ITT)(?=.*PD-L1)",
-    "directory": "viking://resources/curation/NSCLC/NCT02453282",
+    "directories": ["viking://resources/curation/NSCLC/NCT02453282"],
     "glob": "*.txt",
     "max_results": 5
   }'
@@ -80,11 +85,11 @@ curl -X POST http://localhost:1935/grep \
 | Field         | Type   | Required | Description                                                                    |
 | ------------- | ------ | -------- | ------------------------------------------------------------------------------ |
 | `pattern`     | string | Yes      | The regular expression to search for.                                          |
-| `directory`   | string | Yes      | The directory to search in. Supports both `viking://...` and relative formats. |
+| `directories` | array  | Yes      | The directories to search in. Supports both `viking://...` and relative formats. |
 | `glob`        | string | No       | File filter glob pattern (e.g., `*.log`, `**/*.md`).                           |
 | `max_results` | int    | No       | Maximum results for this specific request (capped by `GREP_MAX_RESULTS`).      |
 
-_Note: The `directory` field is automatically resolved using `OPEN_VIKING_DATA_PATH` + `OPEN_VIKING_ACCOUNT`. For example, `viking://resources/curation/cardio` translates to `/data/workspace/viking/default/resources/curation/cardio`._
+_Note: The `directories` entries are automatically resolved using `OPEN_VIKING_DATA_PATH` + `OPEN_VIKING_ACCOUNT`. For example, `viking://resources/curation/cardio` translates to `/data/workspace/viking/default/resources/curation/cardio`._
 
 **Response:**
 

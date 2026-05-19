@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 var ErrPathTraversal = errors.New("path traversal denied")
@@ -29,6 +31,8 @@ type SearchData struct {
 	URIs      []string `json:"uris"`
 	Truncated bool     `json:"truncated"`
 }
+
+var grepSF singleflight.Group
 
 // resolveDirectory 将 directory 解析为完整的文件系统路径。
 // 输入 "viking://resources/curation/cardio" → "/data/workspace/viking/default/resources/curation/cardio"
@@ -56,6 +60,69 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		searchDirs = append(searchDirs, resolved)
 	}
 
+	maxResults := cfg.MaxGrepResults
+	if req.MaxResults > 0 && req.MaxResults < maxResults {
+		maxResults = req.MaxResults
+	}
+
+	cacheEnabled := cfg.RedisAddr != "" && cfg.GrepCacheTTL > 0 && grepCache != nil
+	normalized := normalizeDirectories(searchDirs)
+
+	sfKey := buildSingleflightKey(req.Pattern, normalized, normalizeGlob(req.Glob), req.Hidden, maxResults, cfg.MaxGrepFilesize)
+
+	cacheKey, cacheKeyErr := buildGrepCacheKey(cfg.GrepCachePrefix, grepCacheKeyPayload{
+		Pattern:          req.Pattern,
+		Directories:      normalized,
+		Glob:             normalizeGlob(req.Glob),
+		Hidden:           req.Hidden,
+		EffectiveMax:     maxResults,
+		CfgMaxFilesize:   cfg.MaxGrepFilesize,
+		OpenVikingPrefix: cfg.OpenVikingPrefix,
+	})
+	if cacheKeyErr != nil {
+		cacheEnabled = false
+	}
+
+	v, err, _ := grepSF.Do(sfKey, func() (any, error) {
+		if cacheEnabled {
+			if cached, ok, getErr := grepCache.Get(ctx, cacheKey); getErr == nil && ok {
+				var d SearchData
+				if err := json.Unmarshal([]byte(cached), &d); err == nil {
+					keyLog := cacheKey
+					if len(cacheKey) > 8 {
+						keyLog = cacheKey[len(cacheKey)-8:]
+					}
+					zap.L().Info("grep cache hit", zap.String("key", keyLog))
+					return &d, nil
+				}
+			} else if getErr != nil {
+				zap.L().Warn("grep cache get failed", zap.Error(getErr))
+			}
+		}
+
+		res, err := executeRipgrep(ctx, cfg, req, searchDirs, maxResults)
+		if err != nil {
+			return nil, err
+		}
+
+		if cacheEnabled {
+			encoded, encErr := json.Marshal(res)
+			if encErr == nil {
+				if setErr := grepCache.Set(ctx, cacheKey, string(encoded), cfg.GrepCacheTTL); setErr != nil {
+					zap.L().Warn("grep cache set failed", zap.Error(setErr))
+				}
+			}
+		}
+
+		return res, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*SearchData), nil
+}
+
+func executeRipgrep(ctx context.Context, cfg *Config, req *SearchRequest, searchDirs []string, maxResults int) (*SearchData, error) {
 	args := []string{
 		"-l",
 		"--engine", "auto",
@@ -89,11 +156,6 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		return nil, fmt.Errorf("start ripgrep: %w", err)
 	}
 
-	maxResults := cfg.MaxGrepResults
-	if req.MaxResults > 0 && req.MaxResults < maxResults {
-		maxResults = req.MaxResults
-	}
-
 	var uris []string
 	truncated := false
 	scanner := bufio.NewScanner(stdout)
@@ -124,7 +186,6 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		}
 	}
 
-	// Drain stderr
 	stderrBytes, _ := io.ReadAll(stderr)
 	waitErr := cmd.Wait()
 
@@ -158,4 +219,26 @@ func isInvalidRegex(stderr string) bool {
 		strings.Contains(s, "unclosed") ||
 		strings.Contains(s, "invalid utf-8") ||
 		strings.Contains(s, "pcre2") && strings.Contains(s, "error")
+}
+
+// buildSingleflightKey produces a dedupe key from request parameters,
+// independent of cache key construction. Uses \x00 as separator to prevent collisions.
+func buildSingleflightKey(pattern string, normalizedDirs []string, glob string, hidden bool, maxResults int, maxFilesize string) string {
+	b := strings.Builder{}
+	b.WriteString(pattern)
+	b.WriteByte(0)
+	for _, d := range normalizedDirs {
+		b.WriteString(d)
+		b.WriteByte(0)
+	}
+	b.WriteString(glob)
+	b.WriteByte(0)
+	if hidden {
+		b.WriteString("1")
+	}
+	b.WriteByte(0)
+	b.WriteString(fmt.Sprintf("%d", maxResults))
+	b.WriteByte(0)
+	b.WriteString(maxFilesize)
+	return b.String()
 }
