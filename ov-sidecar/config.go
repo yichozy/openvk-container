@@ -31,6 +31,12 @@ type Config struct {
 	RsyncDaemonEnabled    bool
 	RsyncDaemonPort       string
 	RsyncDaemonConfigPath string
+
+	RedisAddr        string
+	RedisPassword    string
+	RedisDB          int
+	GrepCachePrefix  string
+	GrepCacheTTL     time.Duration
 }
 
 const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/"
@@ -91,6 +97,19 @@ func Load() (*Config, error) {
 		cfg.RsyncDaemonPort = getEnv("RSYNC_DAEMON_PORT", "873")
 		cfg.RsyncDaemonConfigPath = getEnv("RSYNC_DAEMON_CONFIG_PATH", "/etc/rsyncd.conf")
 	}
+
+	cfg.RedisAddr = getEnvAny([]string{"CACHE_REDIS_HOST", "REDIS_ADDR"}, "")
+	cfg.RedisPassword = getEnvAny([]string{"CACHE_REDIS_PASSWORD", "REDIS_PASSWORD"}, "")
+
+	redisDBStr := getEnvAny([]string{"CACHE_REDIS_DB", "REDIS_DB"}, "0")
+	redisDB, err := strconv.Atoi(redisDBStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid CACHE_REDIS_DB/REDIS_DB: %w", err)
+	}
+	cfg.RedisDB = redisDB
+
+	cfg.GrepCachePrefix = getEnvAny([]string{"CACHE_GREP_PREFIX", "GREP_CACHE_PREFIX"}, "grep:")
+	cfg.GrepCacheTTL = parseDurationAny([]string{"CACHE_GREP_TTL", "GREP_CACHE_TTL"}, "120s")
 
 	return cfg, nil
 }

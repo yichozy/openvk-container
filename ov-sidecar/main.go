@@ -30,6 +30,13 @@ func main() {
 		zap.L().Fatal("failed to load config", zap.Error(err))
 	}
 
+	InitGrepCache(cfg)
+	defer func() {
+		if err := grepCache.Close(); err != nil {
+			zap.L().Warn("failed to close grep cache", zap.Error(err))
+		}
+	}()
+
 	// Root context: cancelled by SIGINT/SIGTERM to stop all goroutines.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

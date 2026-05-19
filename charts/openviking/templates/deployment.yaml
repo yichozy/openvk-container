@@ -59,6 +59,27 @@ spec:
               value: /app/data/workspace/viking
             - name: OPEN_VIKING_ACCOUNT
               value: {{ .Values.sidecar.openVikingAccount | quote }}
+            {{- if .Values.sidecar.cacheRedis.existingSecret.name }}
+            - name: CACHE_REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.sidecar.cacheRedis.existingSecret.name | quote }}
+                  key: {{ .Values.sidecar.cacheRedis.existingSecret.hostKey | quote }}
+            - name: CACHE_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.sidecar.cacheRedis.existingSecret.name | quote }}
+                  key: {{ .Values.sidecar.cacheRedis.existingSecret.passwordKey | quote }}
+            {{- else }}
+            - name: CACHE_REDIS_HOST
+              value: {{ .Values.sidecar.cacheRedis.host | quote }}
+            {{- end }}
+            - name: CACHE_REDIS_DB
+              value: {{ .Values.sidecar.cacheRedis.db | quote }}
+            - name: CACHE_GREP_PREFIX
+              value: {{ .Values.sidecar.cacheGrep.prefix | quote }}
+            - name: CACHE_GREP_TTL
+              value: {{ .Values.sidecar.cacheGrep.ttl | quote }}
             {{- if eq .Values.role "primary" }}
             - name: SYNC_SOURCE_DIR
               value: {{ .Values.sync.sourceDir | quote }}

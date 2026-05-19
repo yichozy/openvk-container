@@ -28,6 +28,16 @@ sidecar:
   port: 1935
   openVikingAccount: default
   rsyncDaemonPort: 873
+  cacheRedis:
+    host: ""
+    db: 0
+    existingSecret:
+      name: ""
+      hostKey: CACHE_REDIS_HOST
+      passwordKey: CACHE_REDIS_PASSWORD
+  cacheGrep:
+    prefix: "grep:"
+    ttl: "120s"
   # resources: null
   #   requests:
   #     cpu: 100m
