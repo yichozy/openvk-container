@@ -10,6 +10,6 @@ docker run -d \
   -v "$(pwd)/.openviking/ov.conf:/app/.openviking/ov.conf" \
   -v "$(pwd)/data:/app/data" \
   --restart unless-stopped \
-  ghcr.io/volcengine/openviking:v0.3.16
+  ghcr.io/volcengine/openviking:v0.3.17
 
 echo "OpenViking container started successfully."
