@@ -18,23 +18,23 @@ fullnameOverride > release name > chart name
 {{- end }}
 
 {{/*
-Common labels
+Common labels (includes role for visibility, but role is NOT in selectorLabels to keep selector immutable)
 */}}
 {{- define "openviking.labels" -}}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{ include "openviking.selectorLabels" . }}
+app.openviking/role: {{ .Values.role }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Selector labels
+Selector labels (immutable after creation — keep minimal)
 */}}
 {{- define "openviking.selectorLabels" -}}
 {{- range $key, $value := .Values.labels }}
 {{ $key }}: {{ $value | quote }}
 {{- end }}
-app.openviking/role: {{ .Values.role }}
 {{- end }}
 
 {{/*

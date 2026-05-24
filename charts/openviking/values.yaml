@@ -32,9 +32,9 @@ sidecar:
     host: ""
     db: 0
     existingSecret:
-      name: "redis"
-      hostKey: CACHE_REDIS_HOST
-      passwordKey: CACHE_REDIS_PASSWORD
+      name: "redis-service"
+      hostKey: REDIS_HOST
+      passwordKey: REDIS_PASSWORD
   cacheGrep:
     prefix: "grep:"
     ttl: "120s"
@@ -55,7 +55,7 @@ sync:
 
 persistence:
   enabled: true
-  size: 40Gi
+  size: 20Gi
   storageClass:
 
 service:

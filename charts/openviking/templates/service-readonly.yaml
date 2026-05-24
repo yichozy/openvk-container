@@ -1,14 +1,15 @@
+{{- if eq .Values.role "primary" }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "openviking.fullname" . }}
+  name: openvk-ro
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openviking.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-    {{- include "openviking.labels" . | nindent 4 }}
+    app: {{ .Values.labels.app | quote }}
   ports:
     - name: openvk
       port: {{ .Values.service.port }}
@@ -18,9 +19,4 @@ spec:
       port: {{ .Values.service.sidecarPort }}
       targetPort: {{ .Values.sidecar.port }}
       protocol: TCP
-    {{- if eq .Values.role "replica" }}
-    - name: rsync
-      port: {{ .Values.sidecar.rsyncDaemonPort }}
-      targetPort: {{ .Values.sidecar.rsyncDaemonPort }}
-      protocol: TCP
-    {{- end }}
+{{- end }}

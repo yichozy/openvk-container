@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "openviking.selectorLabels" . | nindent 8 }}
+        {{- include "openviking.labels" . | nindent 8 }}
       annotations:
         checksum/ov-conf: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:

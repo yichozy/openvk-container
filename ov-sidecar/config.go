@@ -39,7 +39,7 @@ type Config struct {
 	GrepCacheTTL     time.Duration
 }
 
-const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/"
+const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/,vectordb/"
 
 func Load() (*Config, error) {
 	cfg := &Config{
