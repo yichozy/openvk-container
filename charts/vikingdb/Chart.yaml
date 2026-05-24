@@ -1,0 +1,13 @@
+apiVersion: v2
+name: vikingdb
+description: Helm chart for standalone VikingDB vector database service
+type: application
+version: 0.1.0
+appVersion: "v0.3.19"
+maintainers:
+  - name: openvk-team
+keywords:
+  - vikingdb
+  - vector-database
+  - openviking
+home: https://github.com/volcengine/openviking

@@ -1,0 +1,20 @@
+VikingDB server is deployed!
+
+Get the service URL:
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "vikingdb.fullname" . }} -o jsonpath='{.spec.clusterIP}')
+  echo "VikingDB URL: http://${SERVICE_IP}:{{ .Values.service.port }}"
+
+Check health:
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "vikingdb.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }} &
+  curl http://localhost:{{ .Values.service.port }}/health
+
+Swagger UI:
+  echo "http://localhost:{{ .Values.service.port }}/docs"
+
+Configure OpenViking to use this VikingDB:
+  "storage": {
+    "vectordb": {
+      "backend": "http",
+      "url": "http://{{ include "vikingdb.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}"
+    }
+  }

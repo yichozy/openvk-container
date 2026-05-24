@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "openviking.selectorLabels" . | nindent 8 }}
+        {{- include "openviking.labels" . | nindent 8 }}
       annotations:
         checksum/ov-conf: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
@@ -29,6 +29,9 @@ spec:
         - name: {{ include "openviking.fullname" . }}
           image: "{{ .Values.openviking.image.repository }}:{{ .Values.openviking.image.tag }}"
           imagePullPolicy: {{ .Values.openviking.image.pullPolicy }}
+          env:
+            - name: OPENVIKING_CONFIG_FILE
+              value: /app/ov.conf
           volumeMounts:
             - name: config
               mountPath: /app/ov.conf
@@ -55,6 +58,10 @@ spec:
               protocol: TCP
             {{- end }}
           env:
+            - name: SIDECAR_GREP_THREADS
+              value: "4"
+            - name: SIDECAR_MAX_CONCURRENCY
+              value: "6"
             - name: OPEN_VIKING_DATA_PATH
               value: /app/data/workspace/viking
             - name: OPEN_VIKING_ACCOUNT
