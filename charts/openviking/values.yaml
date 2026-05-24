@@ -10,7 +10,7 @@ imagePullSecrets: []
 openviking:
   image:
     repository: ghcr.io/volcengine/openviking
-    tag: v0.3.16
+    tag: v0.3.17
     pullPolicy: IfNotPresent
   # resources: null
   #   requests:
@@ -23,7 +23,7 @@ openviking:
 sidecar:
   image:
     repository: enzii/ov-sidecar
-    tag: "0.3.6"
+    tag: "0.3.7"
     pullPolicy: IfNotPresent
   port: 1935
   openVikingAccount: default
@@ -32,7 +32,7 @@ sidecar:
     host: ""
     db: 0
     existingSecret:
-      name: ""
+      name: "redis"
       hostKey: CACHE_REDIS_HOST
       passwordKey: CACHE_REDIS_PASSWORD
   cacheGrep:
@@ -46,7 +46,7 @@ sidecar:
   #     cpu: "1"
   #     memory: 512Mi
 
-# -- 同步配置 (primary 角色生效)
+# -- 同步配置
 sync:
   interval: "5m"
   excludes: ".openviking.pid"
@@ -66,6 +66,9 @@ service:
 # -- ov.conf 配置 (存储为 Secret，包含 API keys)
 config:
   storageWorkspace: "./data/workspace"
+  vectordb:
+    backend: http
+    url: "vikingdb:5000"
   server:
     host: "0.0.0.0"
     port: 1933

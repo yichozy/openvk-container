@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vikingdb.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vikingdb.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "vikingdb.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: vikingdb
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.containerPort }}
+      protocol: TCP

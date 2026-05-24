@@ -29,6 +29,9 @@ spec:
         - name: {{ include "openviking.fullname" . }}
           image: "{{ .Values.openviking.image.repository }}:{{ .Values.openviking.image.tag }}"
           imagePullPolicy: {{ .Values.openviking.image.pullPolicy }}
+          env:
+            - name: OPENVIKING_CONFIG_FILE
+              value: /app/ov.conf
           volumeMounts:
             - name: config
               mountPath: /app/ov.conf

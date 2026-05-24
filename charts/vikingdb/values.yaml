@@ -1,0 +1,40 @@
+labels:
+  app: vikingdb
+  version: v1
+
+imagePullSecrets: []
+
+image:
+  repository: ghcr.io/volcengine/openviking
+  tag: v0.3.19
+  pullPolicy: IfNotPresent
+# resources: null
+#   requests:
+#     cpu: 500m
+#     memory: 1Gi
+#   limits:
+#     cpu: "2"
+#     memory: 4Gi
+
+# -- VikingDB server 启动命令
+command:
+  - python
+  - -m
+  - openviking.storage.vectordb.service.server_fastapi
+
+# -- 容器内监听端口
+containerPort: 5000
+
+# -- 持久化路径 (容器内)
+persistPath: /app/vectordb
+
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass:
+
+service:
+  type: ClusterIP
+  port: 5000
+
+replicaCount: 1

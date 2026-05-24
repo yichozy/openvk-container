@@ -46,7 +46,7 @@ Render ov.conf JSON for the Secret.
 {{- $_ := required "config.vlm.api_key is required" .Values.config.vlm.api_key -}}
 {{- $conf := dict -}}
 {{- $_ := set $conf "server" .Values.config.server -}}
-{{- $_ := set $conf "storage" (dict "workspace" .Values.config.storageWorkspace) -}}
+{{- $_ := set $conf "storage" (dict "workspace" .Values.config.storageWorkspace "vectordb" .Values.config.vectordb) -}}
 {{- $_ := set $conf "log" .Values.config.log -}}
 {{- $_ := set $conf "embedding" .Values.config.embedding -}}
 {{- $_ := set $conf "vlm" .Values.config.vlm -}}
