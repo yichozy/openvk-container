@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -22,6 +22,10 @@ type Config struct {
 	OpenVikingAccount string
 	OpenVikingPrefix  string // OpenVikingPath + "/" + OpenVikingAccount + "/"
 
+	MaxReadFilesize  int64
+	MaxReadBatchSize int
+	ReadCacheTTL     time.Duration
+
 	SyncEnabled  bool
 	SyncSource   string
 	SyncDests    []string
@@ -39,7 +43,7 @@ type Config struct {
 	GrepCacheTTL     time.Duration
 }
 
-const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/,vectordb/"
+const defaultExcludes = ".openviking.pid,temp/,_system/,log/,vectordb/,usage_audit.sqlite3*"
 
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -79,6 +83,22 @@ func Load() (*Config, error) {
 		maxConc = 1
 	}
 	cfg.MaxConcurrency = maxConc
+
+	maxReadFilesizeStr := getEnv("MAX_READ_FILESIZE", "100M")
+	maxReadFilesize, err := parseBytes(maxReadFilesizeStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MAX_READ_FILESIZE: %w", err)
+	}
+	cfg.MaxReadFilesize = maxReadFilesize
+
+	maxReadBatchStr := getEnv("MAX_READ_BATCH_SIZE", "100")
+	maxReadBatch, err := strconv.Atoi(maxReadBatchStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MAX_READ_BATCH_SIZE: %w", err)
+	}
+	cfg.MaxReadBatchSize = maxReadBatch
+
+	cfg.ReadCacheTTL = parseDuration("READ_CACHE_TTL", "5m")
 
 	// Sync config
 	if syncSource := os.Getenv("SYNC_SOURCE_DIR"); syncSource != "" {
@@ -158,4 +178,32 @@ func splitPaths(s string) []string {
 		}
 	}
 	return paths
+}
+
+// parseBytes parses a human-readable byte size string (e.g., "100M", "512K", "1G") into int64.
+func parseBytes(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return 0, fmt.Errorf("empty size string")
+	}
+	multiplier := int64(1)
+	switch s[len(s)-1] {
+	case 'K', 'k':
+		multiplier = 1024
+	case 'M', 'm':
+		multiplier = 1024 * 1024
+	case 'G', 'g':
+		multiplier = 1024 * 1024 * 1024
+	default:
+		// no suffix, treat as raw bytes
+	}
+	numStr := s
+	if multiplier > 1 {
+		numStr = s[:len(s)-1]
+	}
+	val, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q: %w", s, err)
+	}
+	return val * multiplier, nil
 }

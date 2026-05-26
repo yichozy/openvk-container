@@ -87,6 +87,12 @@ spec:
               value: {{ .Values.sidecar.cacheGrep.prefix | quote }}
             - name: CACHE_GREP_TTL
               value: {{ .Values.sidecar.cacheGrep.ttl | quote }}
+            - name: MAX_READ_FILESIZE
+              value: {{ .Values.sidecar.maxReadFilesize | quote }}
+            - name: MAX_READ_BATCH_SIZE
+              value: {{ .Values.sidecar.maxReadBatchSize | quote }}
+            - name: READ_CACHE_TTL
+              value: {{ .Values.sidecar.cacheRead.ttl | quote }}
             {{- if eq .Values.role "primary" }}
             - name: SYNC_SOURCE_DIR
               value: {{ .Values.sync.sourceDir | quote }}

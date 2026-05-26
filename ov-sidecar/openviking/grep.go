@@ -1,10 +1,9 @@
-package main
+package openviking
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -13,11 +12,10 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/yichozy/openvk-container/ov-sidecar/cache"
+	"github.com/yichozy/openvk-container/ov-sidecar/config"
 )
-
-var ErrPathTraversal = errors.New("path traversal denied")
-
-const vikingScheme = "viking://"
 
 type SearchRequest struct {
 	Pattern     string   `json:"pattern" binding:"required"`
@@ -34,26 +32,10 @@ type SearchData struct {
 
 var grepSF singleflight.Group
 
-// resolveDirectory 将 directory 解析为完整的文件系统路径。
-// 输入 "viking://resources/curation/cardio" → "/data/workspace/viking/default/resources/curation/cardio"
-// 输入 "resources/curation/cardio"       → "/data/workspace/viking/default/resources/curation/cardio"
-func resolveDirectory(cfg *Config, dir string) (string, error) {
-	cleanDir := strings.TrimPrefix(dir, vikingScheme)
-	cleanDir = strings.TrimPrefix(cleanDir, "/")
-
-	fullPath := filepath.Join(cfg.OpenVikingPrefix, cleanDir)
-
-	rel, err := filepath.Rel(cfg.OpenVikingPrefix, fullPath)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return "", ErrPathTraversal
-	}
-	return fullPath, nil
-}
-
-func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, error) {
+func Search(ctx context.Context, cfg *config.Config, c cache.Cache, req *SearchRequest) (*SearchData, error) {
 	searchDirs := make([]string, 0, len(req.Directories))
 	for _, dir := range req.Directories {
-		resolved, err := resolveDirectory(cfg, dir)
+		resolved, err := ResolveURI(cfg, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -65,15 +47,15 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		maxResults = req.MaxResults
 	}
 
-	cacheEnabled := cfg.RedisAddr != "" && cfg.GrepCacheTTL > 0 && grepCache != nil
-	normalized := normalizeDirectories(searchDirs)
+	cacheEnabled := c != nil && cfg.GrepCacheTTL > 0
+	normalized := cache.NormalizeDirectories(searchDirs)
 
-	sfKey := buildSingleflightKey(req.Pattern, normalized, normalizeGlob(req.Glob), req.Hidden, maxResults, cfg.MaxGrepFilesize)
+	sfKey := buildSingleflightKey(req.Pattern, normalized, NormalizeGlob(req.Glob), req.Hidden, maxResults, cfg.MaxGrepFilesize)
 
-	cacheKey, cacheKeyErr := buildGrepCacheKey(cfg.GrepCachePrefix, grepCacheKeyPayload{
+	cacheKey, cacheKeyErr := cache.BuildGrepCacheKey(cfg.GrepCachePrefix, cache.GrepCacheKeyPayload{
 		Pattern:          req.Pattern,
 		Directories:      normalized,
-		Glob:             normalizeGlob(req.Glob),
+		Glob:             NormalizeGlob(req.Glob),
 		Hidden:           req.Hidden,
 		EffectiveMax:     maxResults,
 		CfgMaxFilesize:   cfg.MaxGrepFilesize,
@@ -85,7 +67,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 
 	v, err, _ := grepSF.Do(sfKey, func() (any, error) {
 		if cacheEnabled {
-			if cached, ok, getErr := grepCache.Get(ctx, cacheKey); getErr == nil && ok {
+			if cached, ok, getErr := c.Get(ctx, cacheKey); getErr == nil && ok {
 				var d SearchData
 				if err := json.Unmarshal([]byte(cached), &d); err == nil {
 					keyLog := cacheKey
@@ -108,7 +90,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 		if cacheEnabled {
 			encoded, encErr := json.Marshal(res)
 			if encErr == nil {
-				if setErr := grepCache.Set(ctx, cacheKey, string(encoded), cfg.GrepCacheTTL); setErr != nil {
+				if setErr := c.Set(ctx, cacheKey, string(encoded), cfg.GrepCacheTTL); setErr != nil {
 					zap.L().Warn("grep cache set failed", zap.Error(setErr))
 				}
 			}
@@ -122,7 +104,7 @@ func Search(ctx context.Context, cfg *Config, req *SearchRequest) (*SearchData, 
 	return v.(*SearchData), nil
 }
 
-func executeRipgrep(ctx context.Context, cfg *Config, req *SearchRequest, searchDirs []string, maxResults int) (*SearchData, error) {
+func executeRipgrep(ctx context.Context, cfg *config.Config, req *SearchRequest, searchDirs []string, maxResults int) (*SearchData, error) {
 	args := []string{
 		"-l",
 		"--engine", "auto",
@@ -241,4 +223,9 @@ func buildSingleflightKey(pattern string, normalizedDirs []string, glob string, 
 	b.WriteByte(0)
 	b.WriteString(maxFilesize)
 	return b.String()
+}
+
+// NormalizeGlob trims whitespace from a glob pattern.
+func NormalizeGlob(glob string) string {
+	return strings.TrimSpace(glob)
 }

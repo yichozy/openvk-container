@@ -6,6 +6,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY *.go ./
+COPY cache/ ./cache/
+COPY config/ ./config/
+COPY handler/ ./handler/
+COPY openviking/ ./openviking/
+COPY sync/ ./sync/
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o ov-sidecar .
 
 FROM alpine:3.20

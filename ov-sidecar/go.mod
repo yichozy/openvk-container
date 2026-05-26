@@ -1,4 +1,4 @@
-module github.com/binhuchen/openvk-container/ov-sidecar
+module github.com/yichozy/openvk-container/ov-sidecar
 
 go 1.26.1
 

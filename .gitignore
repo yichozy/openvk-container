@@ -5,3 +5,4 @@ __pycache__
 .vscode
 .agents
 ov-sidecar/ov-sidecar
+vikingdb-data

@@ -38,6 +38,10 @@ sidecar:
   cacheGrep:
     prefix: "grep:"
     ttl: "120s"
+  maxReadFilesize: "100M"
+  maxReadBatchSize: "100"
+  cacheRead:
+    ttl: "5m"
   # resources: null
   #   requests:
   #     cpu: 100m
