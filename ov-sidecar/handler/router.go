@@ -10,6 +10,7 @@ import (
 
 	"github.com/yichozy/openvk-container/ov-sidecar/cache"
 	"github.com/yichozy/openvk-container/ov-sidecar/config"
+	"github.com/yichozy/openvk-container/ov-sidecar/openviking"
 	"github.com/yichozy/openvk-container/ov-sidecar/sync"
 )
 
@@ -20,19 +21,19 @@ type SearchResponse struct {
 }
 
 type ReadBatchResponse struct {
-	Status string         `json:"status"`
-	Data   interface{}    `json:"data,omitempty"`
-	Error  string         `json:"error,omitempty"`
+	Status string      `json:"status"`
+	Data   interface{} `json:"data,omitempty"`
+	Error  string      `json:"error,omitempty"`
 }
 
 type StatusResponse struct {
-	Status      string          `json:"status"`
-	SyncEnabled bool            `json:"sync_enabled"`
-	Replicas    []string        `json:"replicas,omitempty"`
-	SyncState   sync.SyncState  `json:"sync_state,omitempty"`
+	Status      string         `json:"status"`
+	SyncEnabled bool           `json:"sync_enabled"`
+	Replicas    []string       `json:"replicas,omitempty"`
+	SyncState   sync.SyncState `json:"sync_state,omitempty"`
 }
 
-func SetupRoutes(r *gin.Engine, cfg *config.Config, c cache.Cache, syncer *sync.Syncer) {
+func SetupRoutes(r *gin.Engine, cfg *config.Config, c cache.Cache, syncer *sync.Syncer, indexer *openviking.Indexer) {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -47,11 +48,11 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config, c cache.Cache, syncer *sync.
 		c.JSON(http.StatusOK, resp)
 	})
 
-	sem := make(chan struct{}, cfg.MaxConcurrency)
 	search := r.Group("", timeoutMiddleware(cfg.Timeout))
 	{
-		search.POST("/grep", GrepHandler(cfg, c, sem))
-		search.POST("/read_batch", ReadBatchHandler(cfg, c, sem))
+		search.POST("/grep", GrepHandler(cfg, c))
+		search.POST("/read_batch", ReadBatchHandler(cfg, c))
+		search.POST("/search/bm25", Bm25Handler(indexer))
 	}
 
 	if cfg.SyncEnabled {

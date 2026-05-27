@@ -9,16 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/yichozy/openvk-container/ov-sidecar/cache"
-	"github.com/yichozy/openvk-container/ov-sidecar/config"
 	"github.com/yichozy/openvk-container/ov-sidecar/openviking"
 )
 
-func GrepHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
+// Bm25Handler returns a gin.HandlerFunc that handles POST /search/bm25 requests.
+func Bm25Handler(indexer *openviking.Indexer) gin.HandlerFunc {
 	return func(gc *gin.Context) {
-		var req openviking.SearchRequest
+		var req openviking.Bm25SearchRequest
 		if err := gc.ShouldBindJSON(&req); err != nil {
-			zap.L().Warn("invalid search request", zap.Error(err))
+			zap.L().Warn("invalid bm25 request", zap.Error(err))
 			gc.JSON(http.StatusBadRequest, SearchResponse{
 				Status: "error",
 				Error:  "invalid request: " + err.Error(),
@@ -26,13 +25,13 @@ func GrepHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
 			return
 		}
 
-		zap.L().Info("search request",
+		zap.L().Info("bm25 search request",
 			zap.String("pattern", req.Pattern),
 			zap.Strings("directories", req.Directories),
 			zap.String("glob", req.Glob),
 		)
 
-		result, err := openviking.Search(gc.Request.Context(), cfg, c, &req)
+		searchResult, err := openviking.Bm25Search(gc.Request.Context(), indexer.Cfg(), indexer, &req)
 		if err != nil {
 			if errors.Is(err, openviking.ErrPathTraversal) {
 				zap.L().Warn("path traversal denied",
@@ -45,8 +44,8 @@ func GrepHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
 				})
 				return
 			}
-			if strings.Contains(err.Error(), "invalid regex") {
-				zap.L().Warn("invalid regex", zap.Error(err))
+			if strings.Contains(err.Error(), "query") {
+				zap.L().Warn("invalid query", zap.Error(err))
 				gc.JSON(http.StatusBadRequest, SearchResponse{
 					Status: "error",
 					Error:  err.Error(),
@@ -54,7 +53,7 @@ func GrepHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
 				return
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
-				zap.L().Warn("search timed out",
+				zap.L().Warn("bm25 search timed out",
 					zap.String("pattern", req.Pattern),
 					zap.Strings("directories", req.Directories),
 				)
@@ -64,7 +63,7 @@ func GrepHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
 				})
 				return
 			}
-			zap.L().Error("search failed", zap.Error(err))
+			zap.L().Error("bm25 search failed", zap.Error(err))
 			gc.JSON(http.StatusInternalServerError, SearchResponse{
 				Status: "error",
 				Error:  err.Error(),
@@ -72,15 +71,16 @@ func GrepHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
 			return
 		}
 
-		zap.L().Info("search completed",
+		zap.L().Info("bm25 search completed",
 			zap.String("pattern", req.Pattern),
-			zap.Int("result_count", len(result.URIs)),
-			zap.Bool("truncated", result.Truncated),
+			zap.Int("result_count", len(searchResult.Results)),
+			zap.Int("total", searchResult.Total),
+			zap.Bool("truncated", searchResult.Truncated),
 		)
 
 		gc.JSON(http.StatusOK, SearchResponse{
 			Status: "success",
-			Data:   result,
+			Data:   searchResult,
 		})
 	}
 }

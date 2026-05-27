@@ -12,7 +12,7 @@ import (
 	"github.com/yichozy/openvk-container/ov-sidecar/openviking"
 )
 
-func ReadBatchHandler(cfg *config.Config, c cache.Cache, sem chan struct{}) gin.HandlerFunc {
+func ReadBatchHandler(cfg *config.Config, c cache.Cache) gin.HandlerFunc {
 	return func(gc *gin.Context) {
 		var req openviking.ReadBatchRequest
 		if err := gc.ShouldBindJSON(&req); err != nil {
@@ -38,17 +38,6 @@ func ReadBatchHandler(cfg *config.Config, c cache.Cache, sem chan struct{}) gin.
 			gc.JSON(http.StatusForbidden, ReadBatchResponse{
 				Status: "error",
 				Error:  "path traversal denied",
-			})
-			return
-		}
-
-		select {
-		case sem <- struct{}{}:
-			defer func() { <-sem }()
-		case <-gc.Request.Context().Done():
-			gc.JSON(http.StatusGatewayTimeout, ReadBatchResponse{
-				Status: "error",
-				Error:  "request timed out",
 			})
 			return
 		}

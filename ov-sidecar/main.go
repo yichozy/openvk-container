@@ -16,6 +16,7 @@ import (
 	"github.com/yichozy/openvk-container/ov-sidecar/cache"
 	"github.com/yichozy/openvk-container/ov-sidecar/config"
 	"github.com/yichozy/openvk-container/ov-sidecar/handler"
+	"github.com/yichozy/openvk-container/ov-sidecar/openviking"
 	syncpkg "github.com/yichozy/openvk-container/ov-sidecar/sync"
 )
 
@@ -94,12 +95,36 @@ func main() {
 		}()
 	}
 
+	// Initialize BM25 indexer.
+	indexer, err := openviking.NewIndexer(ctx, cfg)
+	if err != nil {
+		zap.L().Fatal("failed to initialize BM25 indexer", zap.Error(err))
+	}
+	defer indexer.Close()
+
+	// Only build/update index on primary. Replica receives index via rsync.
+	if !cfg.RsyncDaemonEnabled {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := indexer.UpdateIndex(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				zap.L().Error("BM25 initial index update failed", zap.Error(err))
+			}
+			indexer.Start(ctx)
+		}()
+	} else {
+		zap.L().Info("bm25: rsync daemon mode, skipping index build")
+	}
+
 	// HTTP server (always).
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(handler.GinLogger())
-	handler.SetupRoutes(r, cfg, c, syncer)
+	handler.SetupRoutes(r, cfg, c, syncer, indexer)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 
