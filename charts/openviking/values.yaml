@@ -23,7 +23,7 @@ openviking:
 sidecar:
   image:
     repository: enzii/ov-sidecar
-    tag: "0.3.7"
+    tag: "0.3.9"
     pullPolicy: IfNotPresent
   port: 1935
   openVikingAccount: default
@@ -38,6 +38,17 @@ sidecar:
   cacheGrep:
     prefix: "grep:"
     ttl: "120s"
+  maxReadFilesize: "100M"
+  maxReadBatchSize: "100"
+  cacheRead:
+    ttl: "5m"
+  bm25:
+    indexPath: ""
+    updateInterval: "5m"
+    maxIndexFilesize: "10M"
+    excludes: ".openviking.pid,temp/,_system/,log/,vectordb/,usage_audit.sqlite3*,.relations.json,_index/"
+    batchSize: "1000"
+    maxResults: "500"
   # resources: null
   #   requests:
   #     cpu: 100m
@@ -75,6 +86,7 @@ config:
     root_api_key: ""  # REQUIRED: set via -f or --set
     cors_origins:
       - "*"
+    profile_enabled: true
   log:
     level: "INFO"
     output: "stdout"

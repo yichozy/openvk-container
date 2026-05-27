@@ -1,4 +1,4 @@
-package main
+package sync
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
+
+	"github.com/yichozy/openvk-container/ov-sidecar/config"
 )
 
 type syncResult struct {
@@ -21,7 +23,7 @@ type syncResult struct {
 
 // Syncer performs rsync from source to replica directories.
 type Syncer struct {
-	cfg *Config
+	cfg *config.Config
 	mu  sync.Mutex // serializes doSync calls; guards startAt
 
 	muState  sync.RWMutex
@@ -39,7 +41,7 @@ func (s *Syncer) setErrors(errs []string) {
 	s.muState.Unlock()
 }
 
-func NewSyncer(cfg *Config) *Syncer {
+func NewSyncer(cfg *config.Config) *Syncer {
 	return &Syncer{cfg: cfg}
 }
 

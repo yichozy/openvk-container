@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -17,10 +17,13 @@ type Config struct {
 	MaxGrepResults    int
 	MaxGrepFilesize   string
 	GrepThreads       int
-	MaxConcurrency    int
 	OpenVikingPath    string
 	OpenVikingAccount string
 	OpenVikingPrefix  string // OpenVikingPath + "/" + OpenVikingAccount + "/"
+
+	MaxReadFilesize  int64
+	MaxReadBatchSize int
+	ReadCacheTTL     time.Duration
 
 	SyncEnabled  bool
 	SyncSource   string
@@ -37,9 +40,18 @@ type Config struct {
 	RedisDB          int
 	GrepCachePrefix  string
 	GrepCacheTTL     time.Duration
+
+	Bm25IndexPath       string
+	Bm25UpdateInterval  time.Duration
+	Bm25MaxIndexFilesize int64
+	Bm25Excludes        []string
+	Bm25BatchSize       int
+	Bm25MaxResults      int
 }
 
-const defaultExcludes = ".openviking.pid,temp/,_system/queue/,_system/redo/,log/,vectordb/"
+const defaultSyncExcludes = ".openviking.pid,temp/,_system/,log/,vectordb/,usage_audit.sqlite3*"
+
+const defaultBm25Excludes = ".openviking.pid,temp/,_system/,log/,vectordb/,usage_audit.sqlite3*,.relations.json,_index/"
 
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -70,15 +82,21 @@ func Load() (*Config, error) {
 	}
 	cfg.GrepThreads = grepThreads
 
-	maxConcStr := getEnvAny([]string{"SIDECAR_MAX_CONCURRENCY", "GREP_MAX_CONCURRENCY"}, "2")
-	maxConc, err := strconv.Atoi(maxConcStr)
+	maxReadFilesizeStr := getEnv("MAX_READ_FILESIZE", "100M")
+	maxReadFilesize, err := parseBytes(maxReadFilesizeStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid SIDECAR_MAX_CONCURRENCY: %w", err)
+		return nil, fmt.Errorf("invalid MAX_READ_FILESIZE: %w", err)
 	}
-	if maxConc < 1 {
-		maxConc = 1
+	cfg.MaxReadFilesize = maxReadFilesize
+
+	maxReadBatchStr := getEnv("MAX_READ_BATCH_SIZE", "100")
+	maxReadBatch, err := strconv.Atoi(maxReadBatchStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MAX_READ_BATCH_SIZE: %w", err)
 	}
-	cfg.MaxConcurrency = maxConc
+	cfg.MaxReadBatchSize = maxReadBatch
+
+	cfg.ReadCacheTTL = parseDuration("READ_CACHE_TTL", "5m")
 
 	// Sync config
 	if syncSource := os.Getenv("SYNC_SOURCE_DIR"); syncSource != "" {
@@ -87,7 +105,7 @@ func Load() (*Config, error) {
 			cfg.SyncSource = syncSource
 			cfg.SyncDests = splitPaths(syncDests)
 			cfg.SyncInterval = parseDuration("SYNC_INTERVAL", "5m")
-			cfg.SyncExcludes = splitPaths(getEnv("SYNC_EXCLUDES", defaultExcludes))
+			cfg.SyncExcludes = splitPaths(getEnv("SYNC_EXCLUDES", defaultSyncExcludes))
 		}
 	}
 
@@ -110,6 +128,40 @@ func Load() (*Config, error) {
 
 	cfg.GrepCachePrefix = getEnvAny([]string{"CACHE_GREP_PREFIX", "GREP_CACHE_PREFIX"}, "grep:")
 	cfg.GrepCacheTTL = parseDurationAny([]string{"CACHE_GREP_TTL", "GREP_CACHE_TTL"}, "120s")
+
+	// BM25 config
+	bm25IndexPath := getEnv("BM25_INDEX_PATH", "")
+	if bm25IndexPath == "" {
+		bm25IndexPath = cfg.OpenVikingPrefix + "_index"
+	}
+	cfg.Bm25IndexPath = bm25IndexPath
+	cfg.Bm25UpdateInterval = parseDuration("BM25_UPDATE_INTERVAL", "5m")
+
+	maxIdxFilesizeStr := getEnv("BM25_MAX_INDEX_FILESIZE", "10M")
+	maxIdxFilesize, err := parseBytes(maxIdxFilesizeStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid BM25_MAX_INDEX_FILESIZE: %w", err)
+	}
+	cfg.Bm25MaxIndexFilesize = maxIdxFilesize
+
+	cfg.Bm25Excludes = splitPaths(getEnv("BM25_EXCLUDES", defaultBm25Excludes))
+
+	bm25BatchStr := getEnv("BM25_BATCH_SIZE", "1000")
+	bm25Batch, err := strconv.Atoi(bm25BatchStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid BM25_BATCH_SIZE: %w", err)
+	}
+	if bm25Batch < 1 {
+		bm25Batch = 1000
+	}
+	cfg.Bm25BatchSize = bm25Batch
+
+	maxBm25ResultsStr := getEnv("BM25_MAX_RESULTS", "500")
+	maxBm25Results, err := strconv.Atoi(maxBm25ResultsStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid BM25_MAX_RESULTS: %w", err)
+	}
+	cfg.Bm25MaxResults = maxBm25Results
 
 	return cfg, nil
 }
@@ -158,4 +210,32 @@ func splitPaths(s string) []string {
 		}
 	}
 	return paths
+}
+
+// parseBytes parses a human-readable byte size string (e.g., "100M", "512K", "1G") into int64.
+func parseBytes(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return 0, fmt.Errorf("empty size string")
+	}
+	multiplier := int64(1)
+	switch s[len(s)-1] {
+	case 'K', 'k':
+		multiplier = 1024
+	case 'M', 'm':
+		multiplier = 1024 * 1024
+	case 'G', 'g':
+		multiplier = 1024 * 1024 * 1024
+	default:
+		// no suffix, treat as raw bytes
+	}
+	numStr := s
+	if multiplier > 1 {
+		numStr = s[:len(s)-1]
+	}
+	val, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q: %w", s, err)
+	}
+	return val * multiplier, nil
 }

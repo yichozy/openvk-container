@@ -60,8 +60,6 @@ spec:
           env:
             - name: SIDECAR_GREP_THREADS
               value: "4"
-            - name: SIDECAR_MAX_CONCURRENCY
-              value: "6"
             - name: OPEN_VIKING_DATA_PATH
               value: /app/data/workspace/viking
             - name: OPEN_VIKING_ACCOUNT
@@ -87,6 +85,26 @@ spec:
               value: {{ .Values.sidecar.cacheGrep.prefix | quote }}
             - name: CACHE_GREP_TTL
               value: {{ .Values.sidecar.cacheGrep.ttl | quote }}
+            - name: MAX_READ_FILESIZE
+              value: {{ .Values.sidecar.maxReadFilesize | quote }}
+            - name: MAX_READ_BATCH_SIZE
+              value: {{ .Values.sidecar.maxReadBatchSize | quote }}
+            - name: READ_CACHE_TTL
+              value: {{ .Values.sidecar.cacheRead.ttl | quote }}
+            {{- if .Values.sidecar.bm25.indexPath }}
+            - name: BM25_INDEX_PATH
+              value: {{ .Values.sidecar.bm25.indexPath | quote }}
+            {{- end }}
+            - name: BM25_UPDATE_INTERVAL
+              value: {{ .Values.sidecar.bm25.updateInterval | quote }}
+            - name: BM25_MAX_INDEX_FILESIZE
+              value: {{ .Values.sidecar.bm25.maxIndexFilesize | quote }}
+            - name: BM25_EXCLUDES
+              value: {{ .Values.sidecar.bm25.excludes | quote }}
+            - name: BM25_BATCH_SIZE
+              value: {{ .Values.sidecar.bm25.batchSize | quote }}
+            - name: BM25_MAX_RESULTS
+              value: {{ .Values.sidecar.bm25.maxResults | quote }}
             {{- if eq .Values.role "primary" }}
             - name: SYNC_SOURCE_DIR
               value: {{ .Values.sync.sourceDir | quote }}

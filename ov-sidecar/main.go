@@ -12,36 +12,44 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/yichozy/openvk-container/ov-sidecar/cache"
+	"github.com/yichozy/openvk-container/ov-sidecar/config"
+	"github.com/yichozy/openvk-container/ov-sidecar/handler"
+	"github.com/yichozy/openvk-container/ov-sidecar/openviking"
+	syncpkg "github.com/yichozy/openvk-container/ov-sidecar/sync"
 )
 
 func main() {
-	config := zap.NewProductionConfig()
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	loggerCfg := zap.NewProductionConfig()
+	loggerCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	logger, err := config.Build()
+	logger, err := loggerCfg.Build()
 	if err != nil {
 		panic(err)
 	}
 	defer logger.Sync()
 	zap.ReplaceGlobals(logger)
 
-	cfg, err := Load()
+	cfg, err := config.Load()
 	if err != nil {
 		zap.L().Fatal("failed to load config", zap.Error(err))
 	}
 
-	InitGrepCache(cfg)
-	defer func() {
-		if err := grepCache.Close(); err != nil {
-			zap.L().Warn("failed to close grep cache", zap.Error(err))
-		}
-	}()
+	// Initialize cache (fails if Redis not configured).
+	c, cacheErr := cache.NewCache(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	if cacheErr != nil {
+		zap.L().Warn("cache unavailable, skipping", zap.Error(cacheErr))
+	}
+	if c != nil {
+		defer c.Close()
+	}
 
 	// Root context: cancelled by SIGINT/SIGTERM to stop all goroutines.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	syncer := NewSyncer(cfg)
+	syncer := syncpkg.NewSyncer(cfg)
 
 	// Start background services.
 	var wg sync.WaitGroup
@@ -50,7 +58,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			daemon := NewDaemon(cfg.RsyncDaemonPort, cfg.RsyncDaemonConfigPath)
+			daemon := syncpkg.NewDaemon(cfg.RsyncDaemonPort, cfg.RsyncDaemonConfigPath)
 			errCh := make(chan error, 1)
 			go func() { errCh <- daemon.Start() }()
 			select {
@@ -87,12 +95,36 @@ func main() {
 		}()
 	}
 
+	// Initialize BM25 indexer.
+	indexer, err := openviking.NewIndexer(ctx, cfg)
+	if err != nil {
+		zap.L().Fatal("failed to initialize BM25 indexer", zap.Error(err))
+	}
+	defer indexer.Close()
+
+	// Only build/update index on primary. Replica receives index via rsync.
+	if !cfg.RsyncDaemonEnabled {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := indexer.UpdateIndex(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				zap.L().Error("BM25 initial index update failed", zap.Error(err))
+			}
+			indexer.Start(ctx)
+		}()
+	} else {
+		zap.L().Info("bm25: rsync daemon mode, skipping index build")
+	}
+
 	// HTTP server (always).
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(ginLogger())
-	SetupRoutes(r, cfg, syncer)
+	r.Use(handler.GinLogger())
+	handler.SetupRoutes(r, cfg, c, syncer, indexer)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 
@@ -117,15 +149,4 @@ func main() {
 	srv.Shutdown(shutCtx)
 
 	wg.Wait()
-}
-
-func ginLogger() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Next()
-		zap.L().Info("http",
-			zap.String("method", c.Request.Method),
-			zap.String("path", c.Request.URL.Path),
-			zap.Int("status", c.Writer.Status()),
-		)
-	}
 }
